@@ -80,7 +80,7 @@ shareable runtime assets on Hugging Face instead:
 .venv/bin/python -m pip install '.[assets]'
 .venv/bin/hf auth login
 .venv/bin/python scripts/upload_hf_assets.py \
-  --repo-id YOUR_HF_USERNAME/yolo-mpi-people-count-assets
+  --repo-id Bangchis/yolo-mpi-people-count-assets
 ```
 
 The upload script includes only:
@@ -98,7 +98,7 @@ On a fresh machine, download the same assets with:
 ```bash
 .venv/bin/python -m pip install '.[assets]'
 .venv/bin/python scripts/download_hf_assets.py \
-  --repo-id YOUR_HF_USERNAME/yolo-mpi-people-count-assets
+  --repo-id Bangchis/yolo-mpi-people-count-assets
 ```
 
 ## Demo
