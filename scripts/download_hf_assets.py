@@ -13,6 +13,9 @@ DEFAULT_ASSETS = [
     "data/mot17-mini/MOT17-02-SDP-300_960x540.mp4",
     "data/mot17-mini/MOT17-02-SDP-300_counts.csv",
     "data/mot17-mini/README.md",
+    "data/mot17-fullseq/MOT17-02-SDP-600_960x540.mp4",
+    "data/mot17-fullseq/MOT17-02-SDP-600_counts.csv",
+    "data/mot17-fullseq/README.md",
 ]
 
 
