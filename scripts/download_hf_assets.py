@@ -34,7 +34,6 @@ def main() -> int:
             revision=args.revision,
             filename=remote_path,
             local_dir=".",
-            local_dir_use_symlinks=False,
         )
         print(f"DOWNLOADED {remote_path} -> {downloaded}")
     return 0
