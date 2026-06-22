@@ -24,18 +24,20 @@ def main() -> int:
         raise SystemExit(f"No rows in {args.input}")
 
     p = [int(r["world_size"]) for r in rows]
-    speedup = [float(r["speedup_with_comm"]) for r in rows]
-    efficiency = [float(r["efficiency_with_comm"]) for r in rows]
+    speedup_with = [float(r["speedup_with_comm"]) for r in rows]
+    speedup_without = [float(r["speedup_without_comm"]) for r in rows]
+    efficiency_with = [float(r["efficiency_with_comm"]) for r in rows]
 
     fig, ax1 = plt.subplots(figsize=(7, 4))
-    ax1.plot(p, speedup, marker="o", label="speedup")
+    ax1.plot(p, speedup_with, marker="o", label="speedup with comm")
+    ax1.plot(p, speedup_without, marker="s", label="speedup without comm")
     ax1.plot(p, p, linestyle="--", color="0.65", label="ideal")
     ax1.set_xlabel("MPI processes")
     ax1.set_ylabel("Speedup")
     ax1.grid(True, alpha=0.25)
 
     ax2 = ax1.twinx()
-    ax2.plot(p, efficiency, marker="s", color="#d95f02", label="efficiency")
+    ax2.plot(p, efficiency_with, marker="^", color="#d95f02", label="efficiency with comm")
     ax2.set_ylabel("Efficiency")
     ax2.set_ylim(bottom=0)
 

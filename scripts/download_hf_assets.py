@@ -10,6 +10,9 @@ DEFAULT_ASSETS = [
     "models/yolo11n.pt",
     "data/smoke_people.mp4",
     "data/bus.jpg",
+    "data/mot17-mini/MOT17-02-SDP-300_960x540.mp4",
+    "data/mot17-mini/MOT17-02-SDP-300_counts.csv",
+    "data/mot17-mini/README.md",
 ]
 
 

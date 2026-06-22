@@ -597,7 +597,7 @@ private:
 static std::string serialize_detections(const std::vector<Detection>& detections);
 static std::string serialize_metrics(const Metrics& m);
 
-static std::string process_one_task_payload(const Config& cfg, DetectorRunner& detector, const Task& task, int rank) {
+static std::string process_one_task_payload(const Config& cfg, DetectorRunner& detector, const Task& task, int rank, double comm_ms = 0.0) {
     Metrics m;
     m.rank = rank;
     m.hostname = hostname();
@@ -616,6 +616,7 @@ static std::string process_one_task_payload(const Config& cfg, DetectorRunner& d
     m.frames_done = task.tile_id == 0 ? 1 : 0;
     m.yolo_ms = std::chrono::duration<double, std::milli>(y1 - y0).count();
     m.compute_ms = std::chrono::duration<double, std::milli>(t1 - t0).count();
+    m.comm_ms = comm_ms;
     return serialize_detections(detections) + serialize_metrics(m);
 }
 
@@ -753,7 +754,13 @@ static std::vector<Task> select_static_tasks(const std::vector<Task>& tasks, int
     return selected;
 }
 
-static std::string process_tasks_payload(const Config& cfg, const std::vector<Task>& tasks, int rank, Metrics* out_metrics = nullptr) {
+static std::string process_tasks_payload(
+    const Config& cfg,
+    const std::vector<Task>& tasks,
+    int rank,
+    Metrics* out_metrics = nullptr,
+    bool include_metrics = true
+) {
     Metrics m;
     m.rank = rank;
     m.hostname = hostname();
@@ -776,7 +783,9 @@ static std::string process_tasks_payload(const Config& cfg, const std::vector<Ta
         m.compute_ms += std::chrono::duration<double, std::milli>(t1 - t0).count();
     }
     if (out_metrics) *out_metrics = m;
-    return serialize_detections(detections) + serialize_metrics(m);
+    std::string payload = serialize_detections(detections);
+    if (include_metrics) payload += serialize_metrics(m);
+    return payload;
 }
 
 static std::string run_static(const Config& cfg, const std::vector<Task>& tasks, MPI_Comm comm) {
@@ -784,13 +793,15 @@ static std::string run_static(const Config& cfg, const std::vector<Task>& tasks,
     MPI_Comm_rank(comm, &rank);
     MPI_Comm_size(comm, &world_size);
     auto local_tasks = select_static_tasks(tasks, rank, world_size, cfg.chunk_size);
-    auto payload = process_tasks_payload(cfg, local_tasks, rank);
+    Metrics local_metrics;
+    auto payload = process_tasks_payload(cfg, local_tasks, rank, &local_metrics, false);
     auto c0 = std::chrono::steady_clock::now();
     std::string gathered = gather_string(payload, 0, comm);
     auto c1 = std::chrono::steady_clock::now();
-    (void)c0;
-    (void)c1;
-    return gathered;
+    local_metrics.comm_ms += std::chrono::duration<double, std::milli>(c1 - c0).count();
+    std::string gathered_metrics = gather_string(serialize_metrics(local_metrics), 0, comm);
+    if (rank == 0) return gathered + gathered_metrics;
+    return "";
 }
 
 static void send_task(const Task& task, int dest) {
@@ -975,6 +986,7 @@ static std::string run_dynamic(const Config& cfg, const std::vector<Task>& tasks
         int completed = 0;
         int stopped = 0;
         int active = 0;
+        double master_comm_ms = 0.0;
         const int total = static_cast<int>(tasks.size());
         const bool master_compute = cfg.master_compute;
         const int initial_worker_tasks = master_compute
@@ -983,11 +995,17 @@ static std::string run_dynamic(const Config& cfg, const std::vector<Task>& tasks
 
         for (int worker = 1; worker < world_size; ++worker) {
             if (next < initial_worker_tasks) {
+                auto c0 = std::chrono::steady_clock::now();
                 send_task(tasks[next++], worker);
+                auto c1 = std::chrono::steady_clock::now();
+                master_comm_ms += std::chrono::duration<double, std::milli>(c1 - c0).count();
                 active += 1;
             } else {
                 int empty[7] = {};
+                auto c0 = std::chrono::steady_clock::now();
                 MPI_Send(empty, 7, MPI_INT, worker, stop_tag, MPI_COMM_WORLD);
+                auto c1 = std::chrono::steady_clock::now();
+                master_comm_ms += std::chrono::duration<double, std::milli>(c1 - c0).count();
                 stopped += 1;
             }
         }
@@ -1001,7 +1019,10 @@ static std::string run_dynamic(const Config& cfg, const std::vector<Task>& tasks
                 if (!flag) return false;
             }
             MPI_Status status;
+            auto c0 = std::chrono::steady_clock::now();
             auto payload = recv_string(MPI_ANY_SOURCE, result_tag, &status);
+            auto c1 = std::chrono::steady_clock::now();
+            master_comm_ms += std::chrono::duration<double, std::milli>(c1 - c0).count();
             all << payload;
             completed += 1;
             active -= 1;
@@ -1009,11 +1030,17 @@ static std::string run_dynamic(const Config& cfg, const std::vector<Task>& tasks
 
             bool reserve_for_master = master_compute && (total - next) <= 1;
             if (next < total && !reserve_for_master) {
+                auto s0 = std::chrono::steady_clock::now();
                 send_task(tasks[next++], worker);
+                auto s1 = std::chrono::steady_clock::now();
+                master_comm_ms += std::chrono::duration<double, std::milli>(s1 - s0).count();
                 active += 1;
             } else {
                 int empty[7] = {};
+                auto s0 = std::chrono::steady_clock::now();
                 MPI_Send(empty, 7, MPI_INT, worker, stop_tag, MPI_COMM_WORLD);
+                auto s1 = std::chrono::steady_clock::now();
+                master_comm_ms += std::chrono::duration<double, std::milli>(s1 - s0).count();
                 stopped += 1;
             }
             return true;
@@ -1046,15 +1073,21 @@ static std::string run_dynamic(const Config& cfg, const std::vector<Task>& tasks
         while (stopped < world_size - 1) {
             if (!receive_worker_result(true, all)) break;
         }
+        all << serialize_metrics(Metrics{0, hostname(), 0, 0, 0, 0, 0, master_comm_ms, 0});
         return all.str();
     }
 
     DetectorRunner detector(cfg, rank);
+    double pending_comm_ms = 0.0;
     while (true) {
         int tag = 0;
+        auto c0 = std::chrono::steady_clock::now();
         Task task = recv_task(&tag);
+        auto c1 = std::chrono::steady_clock::now();
+        pending_comm_ms += std::chrono::duration<double, std::milli>(c1 - c0).count();
         if (tag == stop_tag) break;
-        auto payload = process_one_task_payload(cfg, detector, task, rank);
+        auto payload = process_one_task_payload(cfg, detector, task, rank, pending_comm_ms);
+        pending_comm_ms = 0.0;
         send_string(payload, 0, result_tag);
     }
     return "";

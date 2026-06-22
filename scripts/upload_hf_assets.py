@@ -11,6 +11,9 @@ DEFAULT_ASSETS = [
     ("models/yolo11n.pt", "models/yolo11n.pt"),
     ("data/smoke_people.mp4", "data/smoke_people.mp4"),
     ("data/bus.jpg", "data/bus.jpg"),
+    ("data/mot17-mini/MOT17-02-SDP-300_960x540.mp4", "data/mot17-mini/MOT17-02-SDP-300_960x540.mp4"),
+    ("data/mot17-mini/MOT17-02-SDP-300_counts.csv", "data/mot17-mini/MOT17-02-SDP-300_counts.csv"),
+    ("data/mot17-mini/README.md", "data/mot17-mini/README.md"),
 ]
 
 
@@ -54,6 +57,7 @@ def main() -> int:
         )
         print(f"UPLOADED {local} -> hf://{args.repo_id}/{remote}")
 
+    contents = "\n".join(f"- `{remote}`" for _, remote in assets)
     readme = (
         "---\n"
         "license: mit\n"
@@ -64,9 +68,7 @@ def main() -> int:
         "# YOLO MPI People Count Assets\n\n"
         "Runtime assets for `Bangchis/yolo-mpi-people-count`.\n\n"
         "Contents:\n"
-        "- `models/yolo11n.pt`: YOLO model weights used by the demo.\n"
-        "- `data/smoke_people.mp4`: small smoke-test video.\n"
-        "- `data/bus.jpg`: small image test asset.\n\n"
+        f"{contents}\n\n"
         "No cluster secrets, SSH keys, local `configs/cluster_macos.env`, build output, or result logs are included.\n"
     )
     api.upload_file(

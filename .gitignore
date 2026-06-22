@@ -16,6 +16,8 @@ configs/cluster_macos.env
 # Runtime outputs and large local assets.
 results/
 runs/
+data/raw/
+data/mot17-mini/
 data/*.mp4
 data/*.mov
 data/*.avi
