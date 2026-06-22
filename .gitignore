@@ -1,0 +1,29 @@
+.DS_Store
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+.venv-*/
+build/
+dist/
+*.egg-info/
+
+# Local cluster secrets and machine-specific paths.
+configs/cluster_macos.env
+
+# Runtime outputs and large local assets.
+results/
+runs/
+data/*.mp4
+data/*.mov
+data/*.avi
+data/*.mkv
+data/*.jpg
+data/*.jpeg
+data/*.png
+*.pt
+*.onnx
+!data/.gitkeep
+!models/.gitkeep

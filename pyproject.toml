@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "yolo-mpi-people-count"
+version = "0.1.0"
+description = "Parallel YOLO people counting on a 3-MacBook OpenMPI cluster with Apple MPS."
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "Parallel MacBook Cluster Team" }]
+dependencies = []
+
+[project.optional-dependencies]
+helpers = [
+  "opencv-python>=4.8",
+  "matplotlib>=3.8",
+]
+mps = [
+  "torch>=2.2",
+]
+yolo = [
+  "torch>=2.2",
+  "torchvision>=0.17",
+  "ultralytics>=8.3",
+  "opencv-python>=4.8",
+]
+full = [
+  "torch>=2.2",
+  "torchvision>=0.17",
+  "ultralytics>=8.3",
+  "opencv-python>=4.8",
+  "matplotlib>=3.8",
+]
+
+[tool.setuptools]
+py-modules = []
