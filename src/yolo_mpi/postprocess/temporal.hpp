@@ -12,6 +12,7 @@ static bool temporal_match(const Config& cfg, const Detection& current, const De
         return true;
     }
 
+    // If IoU is weak, compare normalized center distance and axis overlap.
     double cw = box_width(current), pw = box_width(previous);
     double ch = box_height(current), ph = box_height(previous);
     double max_w = std::max(cw, pw);
@@ -30,6 +31,7 @@ static bool temporal_match(const Config& cfg, const Detection& current, const De
     double ox = axis_overlap_ratio(current.x1, current.x2, previous.x1, previous.x2);
     double oy = axis_overlap_ratio(current.y1, current.y2, previous.y1, previous.y2);
 
+    // Centers must be close and at least one axis should overlap.
     return ndx <= cfg.live_temporal_center &&
            ndy <= cfg.live_temporal_center &&
            (ox > 0.10 || oy > 0.10);
@@ -55,6 +57,8 @@ static std::vector<Detection> temporal_dedup_against_previous(
 
     for (const auto& prev : previous) {
         std::vector<size_t> matches;
+
+        // Find all current boxes that could correspond to this previous object.
         for (size_t i = 0; i < current.size(); ++i) {
             if (!used[i] && temporal_match(cfg, current[i], prev)) {
                 matches.push_back(i);
@@ -67,6 +71,8 @@ static std::vector<Detection> temporal_dedup_against_previous(
 
         Detection merged = current[matches.front()];
         used[matches.front()] = true;
+
+        // Multiple current boxes matched one previous object, so merge them.
         for (size_t j = 1; j < matches.size(); ++j) {
             merged = merge_duplicate_detection(merged, current[matches[j]]);
             used[matches[j]] = true;
@@ -75,6 +81,7 @@ static std::vector<Detection> temporal_dedup_against_previous(
     }
 
     for (size_t i = 0; i < current.size(); ++i) {
+        // Preserve boxes that did not belong to any temporal merge group.
         if (!used[i]) {
             out.push_back(current[i]);
         }

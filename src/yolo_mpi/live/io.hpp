@@ -3,6 +3,7 @@
 
 // Build argv for the Python camera/tile source process.
 static std::vector<std::string> camera_source_args(const Config& cfg) {
+    // camera_tile_source.py is responsible for capture, resize, tiling, and JPEG encoding.
     std::vector<std::string> args = {
         cfg.python_bin,
         cfg.camera_script,
@@ -16,9 +17,11 @@ static std::vector<std::string> camera_source_args(const Config& cfg) {
         "--target-fps", std::to_string(cfg.live_fps),
     };
     if (!cfg.live_video_source.empty()) {
+        // Useful for repeatable demo runs without a physical camera.
         args.push_back("--video-source");
         args.push_back(cfg.live_video_source);
     } else {
+        // Normal live mode: capture from the master Mac camera.
         args.push_back("--camera-index");
         args.push_back(std::to_string(cfg.camera_index));
     }
@@ -27,6 +30,7 @@ static std::vector<std::string> camera_source_args(const Config& cfg) {
 
 // Build argv for the Python live viewer process.
 static std::vector<std::string> viewer_args(const Config& cfg) {
+    // The viewer receives final boxes only from rank 0.
     return {
         cfg.python_bin,
         cfg.viewer_script,
@@ -40,6 +44,7 @@ static bool parse_camera_frame_line(const std::string& line, CameraFrame& frame)
     std::istringstream iss(line);
     std::string tag;
 
+    // FRAME contains metadata plus the full JPEG frame for display/anchor mode.
     if (!(iss >> tag >> frame.frame_id >> frame.width >> frame.height >> frame.capture_ms >> frame.encoded_frame)) {
         return false;
     }
@@ -52,6 +57,7 @@ static bool parse_camera_tile_line(const std::string& line, ImageTask& image_tas
     std::istringstream iss(line);
     std::string tag;
 
+    // TILE contains task coordinates and encoded image bytes for one tile.
     if (!(iss >> tag
               >> image_task.task.task_id
               >> image_task.task.frame_id
@@ -73,6 +79,7 @@ static bool read_next_camera_frame(OutputPipeProcess& camera, CameraFrame& frame
     std::string line;
 
     while (camera.read_line(line)) {
+        // Ignore startup noise until the next FRAME line arrives.
         if (starts_with(line, "READY ")) {
             std::cerr << "camera_source " << line << "\n";
             continue;
@@ -91,6 +98,7 @@ static bool read_next_camera_frame(OutputPipeProcess& camera, CameraFrame& frame
                 throw std::runtime_error("malformed FRAME line from camera source");
             }
 
+            // After FRAME, the following lines should be TILE ... END_FRAME.
             break;
         }
     }
@@ -111,6 +119,7 @@ static bool read_next_camera_frame(OutputPipeProcess& camera, CameraFrame& frame
                 throw std::runtime_error("malformed TILE line from camera source");
             }
 
+            // Keep all tiles for this frame before scheduling them.
             frame.tiles.push_back(std::move(image_task));
             continue;
         }
@@ -127,6 +136,8 @@ static bool read_next_camera_frame(OutputPipeProcess& camera, CameraFrame& frame
 static std::string serialize_image_task(const ImageTask& image_task) {
     std::ostringstream out;
     const auto& task = image_task.task;
+
+    // Live MPI sends one JPEG tile as a text payload.
     out << "IMAGE_TASK "
         << task.task_id << " "
         << task.frame_id << " "
@@ -145,6 +156,7 @@ static ImageTask parse_image_task_payload(const std::string& payload) {
     std::istringstream iss(payload);
     std::string tag;
 
+    // Worker rank reconstructs the task before sending it to YOLO.
     if (!(iss >> tag
               >> image_task.task.task_id
               >> image_task.task.frame_id
@@ -171,6 +183,7 @@ static void send_frame_to_viewer(
     const std::vector<Detection>& detections
 ) {
     std::ostringstream header;
+    // Header gives viewer the frame and how many BOX lines will follow.
     header << "FRAME " << frame.frame_id << " " << frame.width << " " << frame.height << " "
            << detections.size() << " " << frame.encoded_frame;
 
@@ -178,6 +191,7 @@ static void send_frame_to_viewer(
 
     for (const auto& det : detections) {
         std::ostringstream box;
+        // Viewer only needs box coordinates and confidence for drawing.
         box << std::fixed << std::setprecision(4)
             << "BOX " << det.x1 << " " << det.y1 << " " << det.x2 << " " << det.y2 << " " << det.conf;
         viewer.write_line(box.str());
@@ -193,6 +207,7 @@ static void write_live_events(const fs::path& path, const std::vector<LiveFrameE
     f << std::fixed << std::setprecision(4);
 
     for (const auto& event : events) {
+        // latency_ms is end-to-end per-frame processing time after capture.
         f << event.frame_id << "," << event.person_count << "," << event.tasks << ","
           << event.capture_ms << "," << event.latency_ms << "\n";
     }

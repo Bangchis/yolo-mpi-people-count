@@ -9,6 +9,8 @@ public:
         // every frame/tile task.
         int to_child[2] = {-1, -1};
         int from_child[2] = {-1, -1};
+
+        // Parent writes TASK/IMAGE commands to one pipe and reads DET rows from another.
         if (pipe(to_child) != 0 || pipe(from_child) != 0) {
             throw std::runtime_error(std::string("pipe failed: ") + std::strerror(errno));
         }
@@ -21,6 +23,7 @@ public:
 
         if (pid_ == 0) {
             // Child process becomes Python. Parent keeps pipe handles below.
+            // stdin receives C++ commands; stdout returns worker protocol lines.
             dup2(to_child[0], STDIN_FILENO);
             dup2(from_child[1], STDOUT_FILENO);
             close(to_child[0]);
@@ -45,6 +48,7 @@ public:
             argv.reserve(args.size() + 1);
 
             for (auto& arg : args) {
+                // execvp expects mutable char* pointers.
                 argv.push_back(arg.data());
             }
 
@@ -57,6 +61,8 @@ public:
 
         close(to_child[0]);
         close(from_child[1]);
+
+        // Parent keeps write end of input pipe and read end of output pipe.
         input_ = fdopen(to_child[1], "w");
         output_ = fdopen(from_child[0], "r");
 
@@ -119,6 +125,7 @@ public:
             task.y2
         );
 
+        // Line-buffered command is sent to Python immediately.
         std::fflush(input_);
 
         return read_detection_response(task);
@@ -141,6 +148,8 @@ public:
             task.x2,
             task.y2
         );
+
+        // JPEG is already base64/ASCII-safe from camera_tile_source.py.
         std::fwrite(encoded_jpeg.data(), 1, encoded_jpeg.size(), input_);
         std::fprintf(input_, "\n");
         std::fflush(input_);
@@ -187,6 +196,7 @@ private:
             }
 
             if (starts_with(line, "END ")) {
+                // END means all boxes for this task have been read.
                 return detections;
             }
         }
@@ -200,6 +210,7 @@ private:
 
         while (read_line(line)) {
             if (starts_with(line, "READY ")) {
+                // READY confirms Python has loaded the model and can accept tasks.
                 std::cerr << "rank=" << rank_ << " " << line << "\n";
                 return;
             }

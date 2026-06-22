@@ -1,5 +1,6 @@
 // Parse a tile grid such as "4x3" into column and row counts.
 static std::pair<int, int> parse_tile_grid(const std::string& grid) {
+    // Accept both lowercase and uppercase separators.
     auto pos = grid.find('x');
 
     if (pos == std::string::npos) {
@@ -31,6 +32,7 @@ static std::vector<Task> make_tasks(const Config& cfg) {
         int tile_id = 0;
 
         for (int row = 0; row < rows; ++row) {
+            // Base tile is the clean non-overlapped region.
             int base_y1 = static_cast<int>(std::llround(row * cfg.height / static_cast<double>(rows)));
             int base_y2 = static_cast<int>(std::llround((row + 1) * cfg.height / static_cast<double>(rows)));
 
@@ -42,6 +44,8 @@ static std::vector<Task> make_tasks(const Config& cfg) {
                 task.task_id = task_id++;
                 task.frame_id = frame;
                 task.tile_id = tile_id++;
+
+                // Expand each tile by overlap so border objects are not cut away.
                 task.x1 = std::max(0, base_x1 - cfg.overlap);
                 task.y1 = std::max(0, base_y1 - cfg.overlap);
                 task.x2 = std::min(cfg.width, base_x2 + cfg.overlap);

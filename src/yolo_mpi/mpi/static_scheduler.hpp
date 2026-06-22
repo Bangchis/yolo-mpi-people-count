@@ -6,9 +6,11 @@ static std::vector<Task> select_static_tasks(const std::vector<Task>& tasks, int
     std::vector<Task> selected;
 
     for (const auto& task : tasks) {
+        // chunk_size groups consecutive tasks before applying round-robin mapping.
         int block_id = task.task_id / std::max(1, chunk_size);
 
         if (block_id % world_size == rank) {
+            // Static assignment: this rank owns this block for the whole run.
             selected.push_back(task);
         }
     }
@@ -28,27 +30,33 @@ static std::string process_tasks_payload(
     m.rank = rank;
     m.hostname = hostname();
 
+    // Each rank creates its own detector backend once, then reuses it for all tasks.
     std::vector<Detection> detections;
     DetectorRunner detector(cfg, rank);
 
     for (const auto& task : tasks) {
+        // compute_ms includes optional artificial sleep and detector execution.
         auto t0 = std::chrono::steady_clock::now();
 
         if (cfg.sleep_ms > 0) {
+            // Small jitter is useful for testing load-balancing behavior.
             int jitter = (task.frame_id + task.tile_id) % 5;
             std::this_thread::sleep_for(std::chrono::milliseconds(cfg.sleep_ms + jitter));
         }
 
+        // yolo_ms measures only the detector call, not local bookkeeping.
         auto y0 = std::chrono::steady_clock::now();
         auto task_dets = detector.detect(task);
         auto y1 = std::chrono::steady_clock::now();
 
+        // Bboxes from all local tasks are serialized into one payload later.
         detections.insert(detections.end(), task_dets.begin(), task_dets.end());
 
         auto t1 = std::chrono::steady_clock::now();
         m.tasks_done += 1;
 
         if (task.tile_id == 0) {
+            // Count full frames once, using tile 0 as the representative tile.
             m.frames_done += 1;
         }
 
@@ -84,8 +92,10 @@ static std::string run_static(const Config& cfg, const std::vector<Task>& tasks,
     std::string gathered = gather_string(payload, 0, comm);
     auto c1 = std::chrono::steady_clock::now();
 
+    // Static mode communicates mainly at the final gather step.
     local_metrics.comm_ms += std::chrono::duration<double, std::milli>(c1 - c0).count();
 
+    // Gather metrics separately so communication time is included in rank_metrics.csv.
     std::string gathered_metrics = gather_string(serialize_metrics(local_metrics), 0, comm);
 
     if (rank == 0) {

@@ -20,8 +20,12 @@ static std::string run_dynamic(const Config& cfg, const std::vector<Task>& tasks
         int stopped = 0;
         int active = 0;
         double master_comm_ms = 0.0;
+
+        // next points to the next unassigned task in the global task list.
         const int total = static_cast<int>(tasks.size());
         const bool master_compute = cfg.master_compute;
+
+        // If rank 0 computes too, leave one task available for it at startup.
         const int initial_worker_tasks = master_compute
             ? std::min(world_size - 1, std::max(0, total - 1))
             : std::min(world_size - 1, total);
@@ -33,9 +37,12 @@ static std::string run_dynamic(const Config& cfg, const std::vector<Task>& tasks
                 auto c0 = std::chrono::steady_clock::now();
                 send_task(tasks[next++], worker);
                 auto c1 = std::chrono::steady_clock::now();
+
+                // This measures master-side MPI send overhead for task assignment.
                 master_comm_ms += std::chrono::duration<double, std::milli>(c1 - c0).count();
                 active += 1;
             } else {
+                // Extra ranks receive a stop message immediately if there is no work.
                 int empty[7] = {};
                 auto c0 = std::chrono::steady_clock::now();
                 MPI_Send(empty, 7, MPI_INT, worker, stop_tag, MPI_COMM_WORLD);
@@ -67,14 +74,17 @@ static std::string run_dynamic(const Config& cfg, const std::vector<Task>& tasks
             auto payload = recv_string(MPI_ANY_SOURCE, result_tag, &status);
             auto c1 = std::chrono::steady_clock::now();
 
+            // Receiving result payload is communication time, not compute time.
             master_comm_ms += std::chrono::duration<double, std::milli>(c1 - c0).count();
             all << payload;
 
+            // One worker task just completed.
             completed += 1;
             active -= 1;
 
             int worker = status.MPI_SOURCE;
 
+            // Prevent workers from stealing the last task when master_compute is enabled.
             bool reserve_for_master = master_compute && (total - next) <= 1;
 
             if (next < total && !reserve_for_master) {
@@ -82,6 +92,7 @@ static std::string run_dynamic(const Config& cfg, const std::vector<Task>& tasks
                 send_task(tasks[next++], worker);
                 auto s1 = std::chrono::steady_clock::now();
 
+                // Assign the next task to the exact worker that just became free.
                 master_comm_ms += std::chrono::duration<double, std::milli>(s1 - s0).count();
                 active += 1;
             } else {
@@ -101,8 +112,10 @@ static std::string run_dynamic(const Config& cfg, const std::vector<Task>& tasks
         std::ostringstream all;
         std::unique_ptr<DetectorRunner> master_detector;
         if (master_compute) {
+            // Rank 0 can run YOLO too, so the master machine contributes compute.
             master_detector = std::make_unique<DetectorRunner>(cfg, 0);
         } else {
+            // Keep a rank-0 metrics row even when it only schedules work.
             all << serialize_metrics(Metrics{0, hostname(), 0, 0, 0, 0, 0, 0, 0});
         }
 
@@ -132,6 +145,7 @@ static std::string run_dynamic(const Config& cfg, const std::vector<Task>& tasks
             }
         }
 
+        // Add the coordinator communication row after all work has finished.
         all << serialize_metrics(Metrics{0, hostname(), 0, 0, 0, 0, 0, master_comm_ms, 0});
 
         return all.str();
@@ -143,6 +157,7 @@ static std::string run_dynamic(const Config& cfg, const std::vector<Task>& tasks
     while (true) {
         int tag = 0;
 
+        // Worker communication time starts when waiting for a task from rank 0.
         auto c0 = std::chrono::steady_clock::now();
         Task task = recv_task(&tag);
         auto c1 = std::chrono::steady_clock::now();
@@ -150,9 +165,11 @@ static std::string run_dynamic(const Config& cfg, const std::vector<Task>& tasks
         pending_comm_ms += std::chrono::duration<double, std::milli>(c1 - c0).count();
 
         if (tag == stop_tag) {
+            // Stop tag means no more work will be assigned to this worker.
             break;
         }
 
+        // pending_comm_ms is attached to the metric for this just-received task.
         auto payload = process_one_task_payload(cfg, detector, task, rank, pending_comm_ms);
         pending_comm_ms = 0.0;
 

@@ -4,11 +4,14 @@ static Config parse_args(int argc, char** argv) {
     for (int i = 1; i < argc; ++i) {
         std::string key = argv[i];
         auto need_value = [&](const std::string& opt) -> std::string {
+            // Most command-line options are passed as "--flag value".
             if (i + 1 >= argc) {
                 throw std::runtime_error("Missing value for " + opt);
             }
             return argv[++i];
         };
+
+        // Source/model/detector quality options.
         if (key == "--source") {
             cfg.source = need_value(key);
         } else if (key == "--model") {
@@ -27,6 +30,8 @@ static Config parse_args(int argc, char** argv) {
             cfg.overlap = std::stoi(need_value(key));
         } else if (key == "--tile-owner-filter") {
             cfg.tile_owner_filter = read_bool_arg(need_value(key));
+
+        // Duplicate-removal controls used in postprocess.
         } else if (key == "--dedup-ios") {
             cfg.duplicate_ios = std::stod(need_value(key));
         } else if (key == "--dedup-center") {
@@ -41,6 +46,8 @@ static Config parse_args(int argc, char** argv) {
             cfg.duplicate_large_area_ratio = std::stod(need_value(key));
         } else if (key == "--dedup-merge") {
             cfg.duplicate_merge = read_bool_arg(need_value(key));
+
+        // Workload size, MPI schedule, and output controls.
         } else if (key == "--schedule") {
             cfg.schedule = need_value(key);
         } else if (key == "--chunk-size") {
@@ -73,6 +80,8 @@ static Config parse_args(int argc, char** argv) {
             cfg.cpu_fallback = read_bool_arg(need_value(key));
         } else if (key == "--sleep-ms") {
             cfg.sleep_ms = std::stoi(need_value(key));
+
+        // Live camera controls.
         } else if (key == "--live") {
             cfg.live = read_bool_arg(need_value(key));
         } else if (key == "--camera-index") {
@@ -112,6 +121,8 @@ static Config parse_args(int argc, char** argv) {
             throw std::runtime_error("Unknown option: " + key);
         }
     }
+
+    // Reject invalid values before MPI ranks start doing expensive work.
     if (cfg.frames <= 0 || cfg.width <= 0 || cfg.height <= 0 || cfg.chunk_size <= 0) {
         throw std::runtime_error("frames, width, height, and chunk-size must be positive");
     }

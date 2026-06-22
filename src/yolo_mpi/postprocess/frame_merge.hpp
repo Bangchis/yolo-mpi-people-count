@@ -5,8 +5,10 @@ static std::vector<Detection> merge_frame_detections(
     int frame_width,
     int frame_height
 ) {
+    // First remove duplicated detections caused by tile overlap ownership.
     auto filtered = apply_tile_owner_filter(cfg, detections, frame_width, frame_height);
 
+    // Then run final NMS on all boxes from all ranks for this frame.
     return nms(cfg, filtered, frame_width, frame_height);
 }
 
@@ -15,6 +17,7 @@ static std::map<int, std::vector<Detection>> nms_by_frame(const Config& cfg, con
     std::map<int, std::vector<Detection>> grouped;
 
     for (const auto& det : detections) {
+        // Rank 0 receives all detections as a flat list, so group by frame first.
         grouped[det.frame_id].push_back(det);
     }
 

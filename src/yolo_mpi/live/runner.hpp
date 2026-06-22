@@ -8,6 +8,7 @@ static void live_worker_loop(const Config& cfg, int rank) {
 
     while (true) {
         MPI_Status status;
+        // Worker blocks until rank 0 sends either work or a stop message.
         auto payload = recv_string(0, MPI_ANY_TAG, &status);
 
         if (status.MPI_TAG == stop_tag) {
@@ -21,6 +22,7 @@ static void live_worker_loop(const Config& cfg, int rank) {
         auto image_task = parse_image_task_payload(payload);
         auto result = process_one_image_task_payload(cfg, detector, image_task, rank);
 
+        // Result goes back to rank 0 for global merge and display.
         send_string(result, 0, result_tag);
     }
 }
@@ -48,6 +50,7 @@ static void run_live(const Config& cfg, int rank, int world_size) {
     std::unique_ptr<InputPipeProcess> viewer;
 
     if (cfg.live_view) {
+        // Viewer is a local process on master only.
         viewer = std::make_unique<InputPipeProcess>(viewer_args(cfg));
     }
 
@@ -57,6 +60,7 @@ static void run_live(const Config& cfg, int rank, int world_size) {
     std::vector<LiveFrameEvent> events;
 
     if (world_size > 1) {
+        // Add a placeholder row so rank 0 appears in metrics even before compute rows.
         all_metrics.push_back(Metrics{0, hostname(), 0, 0, 0, 0, 0, 0, 0});
     }
 
@@ -73,6 +77,7 @@ static void run_live(const Config& cfg, int rank, int world_size) {
         CameraFrame frame;
 
         if (!read_next_camera_frame(camera, frame)) {
+            // Camera source ended before cfg.frames frames were produced.
             break;
         }
 
@@ -80,8 +85,10 @@ static void run_live(const Config& cfg, int rank, int world_size) {
         std::vector<Detection> frame_detections;
 
         if (world_size == 1) {
+            // Master-only fallback path for testing without node1/node2.
             frame_detections = process_live_frame_locally(cfg, *local_detector, frame, all_metrics);
         } else {
+            // Cluster path: split the frame tiles across MPI ranks.
             frame_detections = process_live_frame_distributed(
                 cfg,
                 (cfg.live_master_compute && !cfg.live_anchor_full_frame) ? local_detector.get() : nullptr,
@@ -92,6 +99,7 @@ static void run_live(const Config& cfg, int rank, int world_size) {
         }
 
         if (cfg.live_anchor_full_frame) {
+            // Full-frame anchor reduces duplicate/split close-camera detections.
             auto anchor_detections = process_live_frame_anchor(cfg, *local_detector, frame, all_metrics);
 
             frame_detections = merge_anchor_and_tile_detections(
@@ -114,6 +122,7 @@ static void run_live(const Config& cfg, int rank, int world_size) {
         previous_live_detections = frame_detections;
 
         auto frame_t1 = std::chrono::steady_clock::now();
+        // Latency excludes camera capture time; capture_ms is stored separately.
         double latency_ms = std::chrono::duration<double, std::milli>(frame_t1 - frame_t0).count();
 
         all_detections.insert(all_detections.end(), frame_detections.begin(), frame_detections.end());
@@ -134,6 +143,7 @@ static void run_live(const Config& cfg, int rank, int world_size) {
         std::cout.flush();
 
         if (viewer) {
+            // Draw only final postprocessed boxes, not raw tile detections.
             send_frame_to_viewer(*viewer, frame, frame_detections);
         }
     }

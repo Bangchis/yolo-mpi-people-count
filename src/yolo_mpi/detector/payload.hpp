@@ -18,13 +18,16 @@ static std::string process_one_task_payload(
 
     std::vector<Detection> detections;
 
+    // Total compute timer includes optional sleep, detector, and local packing.
     auto t0 = std::chrono::steady_clock::now();
 
     if (cfg.sleep_ms > 0) {
+        // Artificial delay lets us simulate uneven task difficulty in benchmarks.
         int jitter = (task.frame_id + task.tile_id) % 5;
         std::this_thread::sleep_for(std::chrono::milliseconds(cfg.sleep_ms + jitter));
     }
 
+    // YOLO timer is isolated for report metrics.
     auto y0 = std::chrono::steady_clock::now();
     auto task_dets = detector.detect(task);
     auto y1 = std::chrono::steady_clock::now();
@@ -34,6 +37,7 @@ static std::string process_one_task_payload(
     auto t1 = std::chrono::steady_clock::now();
 
     m.tasks_done = 1;
+    // Count a frame only once, represented by tile 0.
     m.frames_done = task.tile_id == 0 ? 1 : 0;
     m.yolo_ms = std::chrono::duration<double, std::milli>(y1 - y0).count();
     m.compute_ms = std::chrono::duration<double, std::milli>(t1 - t0).count();
@@ -54,6 +58,7 @@ static std::string process_one_image_task_payload(
 
     std::vector<Detection> detections;
 
+    // Live path measures the same fields as offline mode for comparable output.
     auto t0 = std::chrono::steady_clock::now();
 
     if (cfg.sleep_ms > 0) {
@@ -70,6 +75,7 @@ static std::string process_one_image_task_payload(
     auto t1 = std::chrono::steady_clock::now();
 
     m.tasks_done = 1;
+    // Live frames are also counted once through tile 0.
     m.frames_done = image_task.task.tile_id == 0 ? 1 : 0;
     m.yolo_ms = std::chrono::duration<double, std::milli>(y1 - y0).count();
     m.compute_ms = std::chrono::duration<double, std::milli>(t1 - t0).count();
@@ -82,6 +88,7 @@ static std::string serialize_detections(const std::vector<Detection>& detections
     out << std::fixed << std::setprecision(4);
 
     for (const auto& det : detections) {
+        // DET rows are easy to concatenate across MPI ranks.
         out << "DET," << det.frame_id << "," << det.tile_id << "," << det.rank << ","
             << det.x1 << "," << det.y1 << "," << det.x2 << "," << det.y2 << ","
             << det.conf << "," << det.cls << "\n";
@@ -94,6 +101,7 @@ static std::string serialize_detections(const std::vector<Detection>& detections
 static std::string serialize_metrics(const Metrics& m) {
     std::ostringstream out;
     out << std::fixed << std::setprecision(4);
+    // One MET row records the timing contribution of one rank or one task.
     out << "MET," << m.rank << "," << m.hostname << "," << m.tasks_done << ","
         << m.frames_done << "," << m.compute_ms << "," << m.io_ms << ","
         << m.yolo_ms << "," << m.comm_ms << "," << m.idle_ms << "\n";
@@ -103,6 +111,7 @@ static std::string serialize_metrics(const Metrics& m) {
 // Parse one DET line back into a Detection object on rank 0.
 static Detection parse_detection_line(const std::string& line) {
     std::string normalized = line;
+    // Accept both comma-separated and whitespace-separated rows.
     std::replace(normalized.begin(), normalized.end(), ',', ' ');
 
     std::istringstream iss(normalized);
@@ -126,6 +135,7 @@ static Detection parse_detection_line(const std::string& line) {
 // Parse one MET line back into a Metrics object on rank 0.
 static Metrics parse_metrics_line(const std::string& line) {
     std::string normalized = line;
+    // Match the normalization used for DET rows.
     std::replace(normalized.begin(), normalized.end(), ',', ' ');
 
     std::istringstream iss(normalized);
@@ -157,8 +167,10 @@ static void parse_payload(
 
     while (std::getline(in, line)) {
         if (line.rfind("DET,", 0) == 0) {
+            // Detection rows become final bbox candidates.
             detections.push_back(parse_detection_line(line));
         } else if (line.rfind("MET,", 0) == 0) {
+            // Metric rows feed rank_metrics.csv and summary.csv.
             metrics.push_back(parse_metrics_line(line));
         }
     }
@@ -172,6 +184,7 @@ static std::vector<Metrics> aggregate_metrics_by_rank(const std::vector<Metrics>
         auto it = grouped.find(row.rank);
 
         if (it == grouped.end()) {
+            // First metric row seen for this rank.
             grouped[row.rank] = row;
             continue;
         }
@@ -182,6 +195,7 @@ static std::vector<Metrics> aggregate_metrics_by_rank(const std::vector<Metrics>
             dst.hostname = row.hostname;
         }
 
+        // Multiple task-level rows from the same rank are accumulated here.
         dst.tasks_done += row.tasks_done;
         dst.frames_done += row.frames_done;
         dst.compute_ms += row.compute_ms;

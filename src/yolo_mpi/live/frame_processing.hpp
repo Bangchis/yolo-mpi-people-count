@@ -10,6 +10,7 @@ static std::vector<Detection> process_live_frame_locally(
     std::vector<Detection> frame_detections;
 
     for (const auto& image_task : frame.tiles) {
+        // Local debug mode still uses the same payload parser as MPI mode.
         auto payload = process_one_image_task_payload(cfg, detector, image_task, 0);
         parse_payload(payload, frame_detections, metrics);
     }
@@ -33,6 +34,8 @@ static std::vector<Detection> process_live_frame_distributed(
     int completed = 0;
     int active = 0;
     std::vector<Detection> frame_detections;
+
+    // If local_detector is present, rank 0 also processes live tiles.
     const bool master_compute = local_detector != nullptr;
 
     int initial_worker_tasks = std::min(world_size - 1, total);
@@ -42,12 +45,14 @@ static std::vector<Detection> process_live_frame_distributed(
     }
 
     for (int worker = 1; worker < world_size && next < initial_worker_tasks; ++worker) {
+        // Send one tile to each worker at startup.
         send_string(serialize_image_task(frame.tiles[next++]), worker, task_tag);
         active += 1;
     }
 
     while (completed < total) {
         if (master_compute && next < total) {
+            // Rank 0 can process a tile while worker ranks are busy.
             auto payload = process_one_image_task_payload(cfg, *local_detector, frame.tiles[next++], 0);
             parse_payload(payload, frame_detections, metrics);
 
@@ -56,6 +61,7 @@ static std::vector<Detection> process_live_frame_distributed(
 
         if (active > 0) {
             MPI_Status status;
+            // Wait for whichever worker finishes first.
             auto payload = recv_string(MPI_ANY_SOURCE, result_tag, &status);
             parse_payload(payload, frame_detections, metrics);
             completed += 1;
@@ -66,6 +72,7 @@ static std::vector<Detection> process_live_frame_distributed(
             bool reserve_one_for_master = master_compute && (total - next) <= 1;
 
             if (next < total && !reserve_one_for_master) {
+                // Refill that same worker with the next unscheduled tile.
                 send_string(serialize_image_task(frame.tiles[next++]), worker, task_tag);
                 active += 1;
             }
@@ -97,6 +104,7 @@ static std::vector<Detection> process_live_frame_anchor(
     full_frame.task.y1 = 0;
     full_frame.task.x2 = frame.width;
     full_frame.task.y2 = frame.height;
+    // Use the full frame JPEG, not a cropped tile JPEG.
     full_frame.encoded_jpeg = frame.encoded_frame;
 
     std::vector<Detection> detections;
@@ -120,6 +128,7 @@ static std::vector<Detection> merge_anchor_and_tile_detections(
         bool covered_by_anchor = false;
 
         for (const auto& anchor : anchors) {
+            // If the full-frame detection already covers this tile box, skip it.
             if (duplicate_detection(cfg, tile_det, anchor, frame_width, frame_height)) {
                 covered_by_anchor = true;
                 break;

@@ -1,7 +1,9 @@
 // Replace one placeholder token everywhere inside a detector command template.
 static std::string replace_all(std::string s, const std::string& from, const std::string& to) {
     size_t pos = 0;
+
     while ((pos = s.find(from, pos)) != std::string::npos) {
+        // Continue after the replacement to avoid replacing inside inserted text.
         s.replace(pos, from.size(), to);
         pos += to.size();
     }
@@ -10,6 +12,7 @@ static std::string replace_all(std::string s, const std::string& from, const std
 
 // Fill a user-supplied command template with the current config and task fields.
 static std::string command_for_task(std::string command, const Config& cfg, const Task& task) {
+    // These placeholders let a shell command know which video tile to process.
     command = replace_all(command, "{source}", cfg.source);
     command = replace_all(command, "{model}", cfg.model);
     command = replace_all(command, "{device}", cfg.device);
@@ -29,11 +32,13 @@ static std::string command_for_task(std::string command, const Config& cfg, cons
 static std::vector<Detection> mock_detector(const Task& task, int rank) {
     std::vector<Detection> detections;
 
+    // Mock boxes are generated inside the tile bounds for deterministic tests.
     int w = std::max(1, task.x2 - task.x1);
     int h = std::max(1, task.y2 - task.y1);
     int count = 1 + ((task.frame_id + task.tile_id) % 3);
 
     for (int i = 0; i < count; ++i) {
+        // Vary center positions slightly so frames/tiles are not identical.
         double cx = task.x1 + (0.22 + 0.22 * i + 0.03 * (task.frame_id % 5)) * w;
         double cy = task.y1 + (0.28 + 0.17 * i + 0.02 * (task.tile_id % 4)) * h;
         double bw = std::max(24.0, 0.12 * w);
@@ -59,6 +64,8 @@ static std::vector<Detection> mock_detector(const Task& task, int rank) {
 static std::vector<Detection> command_detector(const Config& cfg, const Task& task, int rank) {
     std::vector<Detection> detections;
     std::string command = command_for_task(cfg.detector_command, cfg, task);
+
+    // popen keeps this backend simple for experiments with external commands.
     FILE* pipe = popen(command.c_str(), "r");
 
     if (!pipe) {
@@ -83,6 +90,7 @@ static std::vector<Detection> command_detector(const Config& cfg, const Task& ta
             continue;
         }
 
+        // External command returns tile-local coordinates, so remap to frame coords.
         Detection det;
         det.frame_id = task.frame_id;
         det.tile_id = task.tile_id;

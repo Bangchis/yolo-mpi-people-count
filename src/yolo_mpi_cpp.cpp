@@ -24,12 +24,15 @@
 // Program entrypoint for both offline video benchmark mode and live camera mode.
 int main(int argc, char** argv) {
     std::signal(SIGPIPE, SIG_IGN);
+
+    // Every process becomes one MPI rank from this point.
     MPI_Init(&argc, &argv);
     int rank = 0, world_size = 0;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &world_size);
 
     try {
+        // All ranks parse the same command line so they agree on workload settings.
         Config cfg = parse_args(argc, argv);
         if (cfg.live) {
             // Live mode: rank 0 captures camera frames, other ranks receive JPEG tiles.
@@ -41,11 +44,16 @@ int main(int argc, char** argv) {
         }
         // Offline mode: build all frame/tile tasks before scheduling.
         auto tasks = make_tasks(cfg);
+
+        // Start timing after all ranks have built the same task list.
         MPI_Barrier(MPI_COMM_WORLD);
         auto t0 = std::chrono::steady_clock::now();
+
+        // Scheduler returns serialized DET/MET rows on rank 0.
         std::string payload = cfg.schedule == "dynamic"
             ? run_dynamic(cfg, tasks, MPI_COMM_WORLD)
             : run_static(cfg, tasks, MPI_COMM_WORLD);
+
         MPI_Barrier(MPI_COMM_WORLD);
         auto t1 = std::chrono::steady_clock::now();
         double total_ms = std::chrono::duration<double, std::milli>(t1 - t0).count();
@@ -57,6 +65,8 @@ int main(int argc, char** argv) {
             std::vector<Metrics> metrics;
             parse_payload(payload, detections, metrics);
             metrics = aggregate_metrics_by_rank(metrics);
+
+            // Global postprocess happens once after rank 0 has all boxes.
             auto by_frame = nms_by_frame(cfg, detections);
             int correctness = -1;
             if (cfg.verify) {

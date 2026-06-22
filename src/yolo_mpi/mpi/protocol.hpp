@@ -3,6 +3,7 @@
 
 // Send one fixed-size Task from rank 0 to a worker rank.
 static void send_task(const Task& task, int dest) {
+    // Fixed int array keeps task messages simple and avoids struct layout issues.
     int raw[7] = {task.task_id, task.frame_id, task.tile_id, task.x1, task.y1, task.x2, task.y2};
     MPI_Send(raw, 7, MPI_INT, dest, 10, MPI_COMM_WORLD);
 }
@@ -19,6 +20,7 @@ static Task recv_task(int* source_tag = nullptr) {
     }
 
     Task task;
+    // Rebuild the Task object from the same int order used in send_task().
     task.task_id = raw[0];
     task.frame_id = raw[1];
     task.tile_id = raw[2];
@@ -33,6 +35,7 @@ static Task recv_task(int* source_tag = nullptr) {
 static void send_string(const std::string& payload, int dest, int tag) {
     int n = static_cast<int>(payload.size());
 
+    // Send size first so the receiver can allocate the string buffer.
     MPI_Send(&n, 1, MPI_INT, dest, tag, MPI_COMM_WORLD);
 
     if (n > 0) {
@@ -51,6 +54,7 @@ static std::string recv_string(int source, int tag, MPI_Status* status_out = nul
     payload.resize(n);
 
     if (n > 0) {
+        // Receive from status.MPI_SOURCE because source can be MPI_ANY_SOURCE.
         MPI_Recv(payload.data(), n, MPI_CHAR, status.MPI_SOURCE, tag, MPI_COMM_WORLD, &status);
     }
 
@@ -95,7 +99,9 @@ public:
         if (pid_ < 0) {
             throw std::runtime_error(std::string("fork failed: ") + std::strerror(errno));
         }
+
         if (pid_ == 0) {
+            // Child writes to stdout; parent reads the other end of this pipe.
             dup2(from_child[1], STDOUT_FILENO);
             close(from_child[0]);
             close(from_child[1]);
@@ -166,6 +172,7 @@ public:
             throw std::runtime_error(std::string("fork failed: ") + std::strerror(errno));
         }
         if (pid_ == 0) {
+            // Child reads from stdin; parent writes the other end of this pipe.
             dup2(to_child[0], STDIN_FILENO);
             close(to_child[0]);
             close(to_child[1]);

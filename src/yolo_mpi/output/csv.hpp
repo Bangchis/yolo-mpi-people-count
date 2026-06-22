@@ -8,6 +8,7 @@ static void write_frame_counts(
     f << "frame_id,person_count\n";
 
     for (int frame = cfg.start_frame; frame < cfg.start_frame + cfg.frames; ++frame) {
+        // Missing frames mean no detection survived postprocess for that frame.
         auto it = by_frame.find(frame);
         f << frame << "," << (it == by_frame.end() ? 0 : it->second.size()) << "\n";
     }
@@ -20,6 +21,7 @@ static void write_bboxes(const fs::path& path, const std::map<int, std::vector<D
     f << std::fixed << std::setprecision(4);
 
     for (const auto& [frame, detections] : by_frame) {
+        // These boxes are already frame-level boxes after tile remap and global NMS.
         for (const auto& det : detections) {
             f << det.frame_id << "," << det.tile_id << "," << det.rank << ","
               << det.x1 << "," << det.y1 << "," << det.x2 << "," << det.y2 << ","
@@ -32,14 +34,17 @@ static void write_bboxes(const fs::path& path, const std::map<int, std::vector<D
 static void write_rank_metrics(const fs::path& path, std::vector<Metrics> metrics) {
     double max_compute = 0;
 
+    // The slowest active rank defines the end of parallel compute time.
     for (const auto& m : metrics) {
         max_compute = std::max(max_compute, m.compute_ms);
     }
 
+    // Idle time is estimated as waiting for the slowest rank to finish.
     for (auto& m : metrics) {
         m.idle_ms = std::max(0.0, max_compute - m.compute_ms);
     }
 
+    // Keep output stable so plots always show rank 0, rank 1, rank 2, ...
     std::sort(metrics.begin(), metrics.end(), [](const Metrics& a, const Metrics& b) { return a.rank < b.rank; });
 
     std::ofstream f(path);
@@ -57,6 +62,7 @@ static double load_imbalance(const std::vector<Metrics>& metrics) {
     std::vector<double> active;
 
     for (const auto& m : metrics) {
+        // Ignore coordinator-only rows that did not process any task.
         if (m.tasks_done > 0) {
             active.push_back(m.compute_ms);
         }
@@ -72,6 +78,7 @@ static double load_imbalance(const std::vector<Metrics>& metrics) {
         return 0;
     }
 
+    // Value near 1.0 means balanced; larger values mean one rank worked much longer.
     return *std::max_element(active.begin(), active.end()) / avg;
 }
 
@@ -85,17 +92,20 @@ static bool verify_counts(
     std::vector<Detection> serial;
     DetectorRunner detector(cfg, -1);
 
+    // Serial baseline processes the exact same task list with no MPI scheduling.
     for (const auto& task : tasks) {
         auto dets = detector.detect(task);
         serial.insert(serial.end(), dets.begin(), dets.end());
     }
 
+    // Both serial and MPI outputs use the same postprocess path before comparison.
     auto serial_by_frame = nms_by_frame(cfg, serial);
 
     int max_error = 0;
     double sum_error = 0;
 
     for (int frame = cfg.start_frame; frame < cfg.start_frame + cfg.frames; ++frame) {
+        // Correctness for the course report is count equality frame by frame.
         int p = parallel_by_frame.count(frame) ? static_cast<int>(parallel_by_frame.at(frame).size()) : 0;
         int s = serial_by_frame.count(frame) ? static_cast<int>(serial_by_frame.at(frame).size()) : 0;
         int err = std::abs(p - s);
@@ -128,6 +138,7 @@ static void write_summary(
 ) {
     double compute_max = 0, compute_sum = 0, comm_sum = 0, io_sum = 0, yolo_sum = 0;
 
+    // "Without communication" runtime is approximated by the slowest compute rank.
     for (const auto& m : metrics) {
         compute_max = std::max(compute_max, m.compute_ms);
     }
@@ -135,6 +146,7 @@ static void write_summary(
     double idle_sum = 0;
 
     for (const auto& m : metrics) {
+        // These totals feed the report plots: compute, communication, YOLO, idle.
         compute_sum += m.compute_ms;
         comm_sum += m.comm_ms;
         io_sum += m.io_ms;
@@ -145,6 +157,7 @@ static void write_summary(
     double avg_count = 0;
 
     for (int frame = cfg.start_frame; frame < cfg.start_frame + cfg.frames; ++frame) {
+        // Average people count is a quick sanity signal for the chosen video.
         auto it = by_frame.find(frame);
         avg_count += (it == by_frame.end() ? 0 : it->second.size());
     }
@@ -174,6 +187,7 @@ static void write_summary(
       << load_imbalance(metrics) << "," << avg_count << ",";
 
     if (correctness < 0) {
+        // Empty means this run did not request serial-vs-MPI verification.
         f << "";
     } else {
         f << correctness;
