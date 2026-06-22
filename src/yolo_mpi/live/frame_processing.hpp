@@ -1,4 +1,6 @@
 // Single-machine live path, mostly used for debugging without node1/node2.
+
+// Process all live tiles on rank 0 only.
 static std::vector<Detection> process_live_frame_locally(
     const Config& cfg,
     DetectorRunner& detector,
@@ -13,6 +15,7 @@ static std::vector<Detection> process_live_frame_locally(
     return merge_frame_detections(cfg, frame_detections, frame.width, frame.height);
 }
 
+// Distribute one live frame's tile tasks from rank 0 to worker ranks and merge results.
 static std::vector<Detection> process_live_frame_distributed(
     const Config& cfg,
     DetectorRunner* local_detector,
@@ -69,6 +72,7 @@ static std::vector<Detection> process_live_frame_distributed(
     return merge_frame_detections(cfg, frame_detections, frame.width, frame.height);
 }
 
+// Run YOLO once on the full frame as an anchor for close-up camera cases.
 static std::vector<Detection> process_live_frame_anchor(
     const Config& cfg,
     DetectorRunner& detector,
@@ -92,6 +96,7 @@ static std::vector<Detection> process_live_frame_anchor(
     return merge_frame_detections(cfg, detections, frame.width, frame.height);
 }
 
+// Prefer full-frame anchor boxes, then add tile boxes not already covered by anchors.
 static std::vector<Detection> merge_anchor_and_tile_detections(
     const Config& cfg,
     const std::vector<Detection>& anchors,

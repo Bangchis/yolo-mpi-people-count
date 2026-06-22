@@ -1,5 +1,7 @@
 // Dynamic scheduling: rank 0 owns a task queue and gives new work to whichever
 // worker just finished. This is the report's main load-balancing strategy.
+
+// Run dynamic MPI mode: rank 0 schedules work, workers return one payload per task.
 static std::string run_dynamic(const Config& cfg, const std::vector<Task>& tasks, MPI_Comm comm) {
     int rank = 0, world_size = 0;
     MPI_Comm_rank(comm, &rank);
@@ -40,6 +42,7 @@ static std::string run_dynamic(const Config& cfg, const std::vector<Task>& tasks
             }
         }
 
+        // Receive one worker result and either issue another task or stop that worker.
         auto receive_worker_result = [&](bool block, std::ostringstream& all) -> bool {
             if (active <= 0) return false;
             if (!block) {

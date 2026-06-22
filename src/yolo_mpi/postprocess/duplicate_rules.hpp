@@ -1,5 +1,7 @@
 // Extra duplicate rule for close-up people crossing tile boundaries.
 // It is disabled by default for crowded scenes because it can merge too much.
+
+// Detect split detections of one large near-camera person across neighboring tiles.
 static bool close_cross_tile_duplicate(const Config& cfg, const Detection& a, const Detection& b, int frame_width, int frame_height) {
     if (!cfg.duplicate_near_camera) return false;
     if (a.tile_id == b.tile_id) return false;
@@ -47,6 +49,7 @@ static bool close_cross_tile_duplicate(const Config& cfg, const Detection& a, co
     return vertical_split || horizontal_split || center_close;
 }
 
+// Central duplicate predicate used by NMS, anchor merge, and live postprocess.
 static bool duplicate_detection(const Config& cfg, const Detection& candidate, const Detection& selected, int frame_width, int frame_height) {
     if (candidate.cls != selected.cls) return false;
     if (iou(candidate, selected) >= cfg.iou) return true;
@@ -55,6 +58,7 @@ static bool duplicate_detection(const Config& cfg, const Detection& candidate, c
     return false;
 }
 
+// Merge two duplicate boxes into one larger box while keeping the best confidence.
 static Detection merge_duplicate_detection(const Detection& a, const Detection& b) {
     Detection merged = a.conf >= b.conf ? a : b;
     merged.x1 = std::min(a.x1, b.x1);
@@ -65,6 +69,7 @@ static Detection merge_duplicate_detection(const Detection& a, const Detection& 
     return merged;
 }
 
+// Check whether a detection's center belongs to the non-overlapped core of its tile.
 static bool detection_center_inside_tile_core(const Config& cfg, const Detection& det, int frame_width, int frame_height) {
     if (!cfg.tile_owner_filter) return true;
     auto [cols, rows] = parse_tile_grid(cfg.tile_grid);
@@ -86,6 +91,7 @@ static bool detection_center_inside_tile_core(const Config& cfg, const Detection
     return x_ok && y_ok;
 }
 
+// Drop detections whose center belongs to another tile's core region.
 static std::vector<Detection> apply_tile_owner_filter(const Config& cfg, const std::vector<Detection>& detections, int frame_width, int frame_height) {
     std::vector<Detection> filtered;
     filtered.reserve(detections.size());
@@ -97,6 +103,7 @@ static std::vector<Detection> apply_tile_owner_filter(const Config& cfg, const s
     return filtered;
 }
 
+// Global NMS for one frame after all tile/rank detections have been gathered.
 static std::vector<Detection> nms(const Config& cfg, std::vector<Detection> detections, int frame_width, int frame_height) {
     // Highest-confidence boxes win; overlapping duplicate boxes are removed or merged.
     std::sort(detections.begin(), detections.end(), [](const Detection& a, const Detection& b) {

@@ -1,3 +1,4 @@
+// Convert command-line flags into one Config object and reject invalid setups early.
 static Config parse_args(int argc, char** argv) {
     Config cfg;
     for (int i = 1; i < argc; ++i) {

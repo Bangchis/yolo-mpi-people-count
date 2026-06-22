@@ -1,3 +1,4 @@
+// Apply all per-frame postprocessing: tile ownership first, then global NMS.
 static std::vector<Detection> merge_frame_detections(
     const Config& cfg,
     const std::vector<Detection>& detections,
@@ -8,6 +9,7 @@ static std::vector<Detection> merge_frame_detections(
     return nms(cfg, filtered, frame_width, frame_height);
 }
 
+// Group detections by frame and run frame-level postprocess for each group.
 static std::map<int, std::vector<Detection>> nms_by_frame(const Config& cfg, const std::vector<Detection>& detections) {
     std::map<int, std::vector<Detection>> grouped;
     for (const auto& det : detections) grouped[det.frame_id].push_back(det);

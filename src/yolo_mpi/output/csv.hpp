@@ -1,3 +1,4 @@
+// Write one count per frame for correctness checks and report plots.
 static void write_frame_counts(const fs::path& path, const Config& cfg, const std::map<int, std::vector<Detection>>& by_frame) {
     std::ofstream f(path);
     f << "frame_id,person_count\n";
@@ -7,6 +8,7 @@ static void write_frame_counts(const fs::path& path, const Config& cfg, const st
     }
 }
 
+// Write final postprocessed bounding boxes for inspection/debugging.
 static void write_bboxes(const fs::path& path, const std::map<int, std::vector<Detection>>& by_frame) {
     std::ofstream f(path);
     f << "frame_id,tile_id,rank,x1,y1,x2,y2,conf,cls\n";
@@ -20,6 +22,7 @@ static void write_bboxes(const fs::path& path, const std::map<int, std::vector<D
     }
 }
 
+// Write per-rank timing data and derive idle time from the slowest compute rank.
 static void write_rank_metrics(const fs::path& path, std::vector<Metrics> metrics) {
     double max_compute = 0;
     for (const auto& m : metrics) max_compute = std::max(max_compute, m.compute_ms);
@@ -35,6 +38,7 @@ static void write_rank_metrics(const fs::path& path, std::vector<Metrics> metric
     }
 }
 
+// Summarize load balance as max active compute time divided by average compute time.
 static double load_imbalance(const std::vector<Metrics>& metrics) {
     std::vector<double> active;
     for (const auto& m : metrics) {
@@ -46,6 +50,7 @@ static double load_imbalance(const std::vector<Metrics>& metrics) {
     return *std::max_element(active.begin(), active.end()) / avg;
 }
 
+// Re-run the same tasks serially and compare final frame counts against MPI output.
 static bool verify_counts(const Config& cfg, const std::vector<Task>& tasks, const std::map<int, std::vector<Detection>>& parallel_by_frame, fs::path report) {
     std::vector<Detection> serial;
     DetectorRunner detector(cfg, -1);
@@ -73,6 +78,7 @@ static bool verify_counts(const Config& cfg, const std::vector<Task>& tasks, con
     return ok;
 }
 
+// Write the one-row experiment summary consumed by benchmark/report scripts.
 static void write_summary(
     const fs::path& path,
     const Config& cfg,

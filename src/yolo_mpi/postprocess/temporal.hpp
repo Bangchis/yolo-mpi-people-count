@@ -1,3 +1,4 @@
+// Decide whether a current live box likely matches a box from the previous frame.
 static bool temporal_match(const Config& cfg, const Detection& current, const Detection& previous) {
     if (current.cls != previous.cls) return false;
     if (iou(current, previous) >= 0.15) return true;
@@ -23,6 +24,7 @@ static bool temporal_match(const Config& cfg, const Detection& current, const De
            (ox > 0.10 || oy > 0.10);
 }
 
+// Merge current-frame duplicate boxes that appear to come from one previous object.
 static std::vector<Detection> temporal_dedup_against_previous(
     const Config& cfg,
     const std::vector<Detection>& current,

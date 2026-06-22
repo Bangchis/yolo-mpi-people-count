@@ -1,10 +1,13 @@
 // Small MPI protocol helpers used by offline and live modes.
 // Task messages are fixed-size ints; result messages are length-prefixed text.
+
+// Send one fixed-size Task from rank 0 to a worker rank.
 static void send_task(const Task& task, int dest) {
     int raw[7] = {task.task_id, task.frame_id, task.tile_id, task.x1, task.y1, task.x2, task.y2};
     MPI_Send(raw, 7, MPI_INT, dest, 10, MPI_COMM_WORLD);
 }
 
+// Receive one Task on a worker; the tag tells whether it is work or stop.
 static Task recv_task(int* source_tag = nullptr) {
     MPI_Status status;
     int raw[7] = {};
@@ -21,12 +24,14 @@ static Task recv_task(int* source_tag = nullptr) {
     return task;
 }
 
+// Send arbitrary text payload through MPI using a length prefix.
 static void send_string(const std::string& payload, int dest, int tag) {
     int n = static_cast<int>(payload.size());
     MPI_Send(&n, 1, MPI_INT, dest, tag, MPI_COMM_WORLD);
     if (n > 0) MPI_Send(payload.data(), n, MPI_CHAR, dest, tag, MPI_COMM_WORLD);
 }
 
+// Receive a length-prefixed text payload and optionally expose MPI status.
 static std::string recv_string(int source, int tag, MPI_Status* status_out = nullptr) {
     MPI_Status status;
     int n = 0;
@@ -38,6 +43,7 @@ static std::string recv_string(int source, int tag, MPI_Status* status_out = nul
     return payload;
 }
 
+// Read one line from a child process pipe and trim newline characters.
 static bool read_pipe_line(FILE* stream, std::string& line) {
     char* buffer = nullptr;
     size_t cap = 0;
@@ -55,6 +61,7 @@ static bool read_pipe_line(FILE* stream, std::string& line) {
 // Tiny process wrapper for helpers that write lines to stdout, e.g. camera source.
 class OutputPipeProcess {
 public:
+    // Start a helper process and capture its stdout as a readable line stream.
     explicit OutputPipeProcess(const std::vector<std::string>& args) {
         int from_child[2] = {-1, -1};
         if (pipe(from_child) != 0) {
@@ -87,6 +94,7 @@ public:
     OutputPipeProcess(const OutputPipeProcess&) = delete;
     OutputPipeProcess& operator=(const OutputPipeProcess&) = delete;
 
+    // Close the pipe and wait for the helper process to exit.
     ~OutputPipeProcess() {
         if (output_) {
             std::fclose(output_);
@@ -99,6 +107,7 @@ public:
         }
     }
 
+    // Read one protocol line from the helper process.
     bool read_line(std::string& line) {
         if (!output_) return false;
         return read_pipe_line(output_, line);
@@ -112,6 +121,7 @@ private:
 // Tiny process wrapper for helpers that read lines from stdin, e.g. live viewer.
 class InputPipeProcess {
 public:
+    // Start a helper process and keep its stdin writable from C++.
     explicit InputPipeProcess(const std::vector<std::string>& args) {
         int to_child[2] = {-1, -1};
         if (pipe(to_child) != 0) {
@@ -145,6 +155,7 @@ public:
     InputPipeProcess(const InputPipeProcess&) = delete;
     InputPipeProcess& operator=(const InputPipeProcess&) = delete;
 
+    // Tell the helper to quit, then close and reap it.
     ~InputPipeProcess() {
         if (input_) {
             write_line("QUIT");
@@ -158,6 +169,7 @@ public:
         }
     }
 
+    // Send one line to the helper process over stdin.
     void write_line(const std::string& line) {
         if (!input_) return;
         std::fwrite(line.data(), 1, line.size(), input_);

@@ -3,6 +3,7 @@
 
 class YoloWorkerProcess {
 public:
+    // Start the Python YOLO worker and wait until the model is loaded.
     YoloWorkerProcess(const Config& cfg, int rank) : rank_(rank) {
         // One long-lived worker per MPI rank avoids reloading the YOLO model for
         // every frame/tile task.
@@ -58,9 +59,11 @@ public:
         wait_until_ready();
     }
 
+    // Disable copying because this object owns pipes and a child process.
     YoloWorkerProcess(const YoloWorkerProcess&) = delete;
     YoloWorkerProcess& operator=(const YoloWorkerProcess&) = delete;
 
+    // Shut down the Python worker cleanly.
     ~YoloWorkerProcess() {
         if (input_) {
             std::fprintf(input_, "QUIT\n");
@@ -85,6 +88,7 @@ public:
         }
     }
 
+    // Send an offline video tile request to the Python worker.
     std::vector<Detection> detect(const Task& task) {
         if (!input_ || !output_) {
             throw std::runtime_error("YOLO worker is not running");
@@ -104,6 +108,7 @@ public:
         return read_detection_response(task);
     }
 
+    // Send an already encoded live JPEG tile to the Python worker.
     std::vector<Detection> detect_image(const Task& task, const std::string& encoded_jpeg) {
         if (!input_ || !output_) {
             throw std::runtime_error("YOLO worker is not running");
@@ -126,6 +131,7 @@ public:
     }
 
 private:
+    // Read DET lines until END and remap tile-local boxes to full-frame coordinates.
     std::vector<Detection> read_detection_response(const Task& task) {
         std::vector<Detection> detections;
         std::string line;
@@ -163,6 +169,7 @@ private:
         throw std::runtime_error("YOLO worker exited before END");
     }
 
+    // Block until the Python worker says READY.
     void wait_until_ready() {
         std::string line;
         while (read_line(line)) {
@@ -178,6 +185,7 @@ private:
         throw std::runtime_error("YOLO worker exited before READY");
     }
 
+    // Read one line from worker stdout.
     bool read_line(std::string& line) {
         std::array<char, 4096> buffer{};
         if (std::fgets(buffer.data(), static_cast<int>(buffer.size()), output_) == nullptr) {
@@ -188,6 +196,7 @@ private:
         return true;
     }
 
+    // Best-effort line read used while destructing the worker.
     bool read_line_no_throw(std::string& line) {
         if (!output_) return false;
         return read_line(line);

@@ -1,6 +1,7 @@
 // MPI scheduling and communication.
 // Static mode uses block-cyclic mapping; dynamic mode uses a master-worker queue.
 
+// Gather variable-length text payloads from all ranks into one string on root.
 static std::string gather_string(const std::string& local, int root, MPI_Comm comm) {
     int rank = 0, size = 0;
     MPI_Comm_rank(comm, &rank);

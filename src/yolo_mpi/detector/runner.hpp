@@ -1,11 +1,17 @@
 class DetectorRunner {
 public:
+    // Create the detector backend once per rank; YOLO keeps a long-lived Python child.
     DetectorRunner(const Config& cfg, int rank) : cfg_(cfg), rank_(rank) {
         if (cfg_.detector == "yolo") {
             yolo_worker_ = std::make_unique<YoloWorkerProcess>(cfg_, rank_);
         }
     }
 
+    // Disable copying because the YOLO backend owns a child process.
+    DetectorRunner(const DetectorRunner&) = delete;
+    DetectorRunner& operator=(const DetectorRunner&) = delete;
+
+    // Detect one offline frame/tile task using the selected backend.
     std::vector<Detection> detect(const Task& task) {
         if (cfg_.detector == "yolo") {
             return yolo_worker_->detect(task);
@@ -16,6 +22,7 @@ public:
         return mock_detector(task, rank_);
     }
 
+    // Detect one live JPEG tile; command detector is intentionally offline-only.
     std::vector<Detection> detect_image(const ImageTask& image_task) {
         if (cfg_.detector == "yolo") {
             return yolo_worker_->detect_image(image_task.task, image_task.encoded_jpeg);

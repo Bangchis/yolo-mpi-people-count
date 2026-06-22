@@ -1,5 +1,7 @@
 // Static scheduling: flatten all frame/tile tasks and assign block-cyclically.
 // It is simple and low-communication, but can be imbalanced on hard frames.
+
+// Select the subset of tasks assigned to this rank by block-cyclic mapping.
 static std::vector<Task> select_static_tasks(const std::vector<Task>& tasks, int rank, int world_size, int chunk_size) {
     std::vector<Task> selected;
     for (const auto& task : tasks) {
@@ -9,6 +11,7 @@ static std::vector<Task> select_static_tasks(const std::vector<Task>& tasks, int
     return selected;
 }
 
+// Process a local list of tasks and serialize all local detections and metrics.
 static std::string process_tasks_payload(
     const Config& cfg,
     const std::vector<Task>& tasks,
@@ -43,6 +46,7 @@ static std::string process_tasks_payload(
     return payload;
 }
 
+// Run static MPI mode: each rank works independently, then root gathers results.
 static std::string run_static(const Config& cfg, const std::vector<Task>& tasks, MPI_Comm comm) {
     int rank = 0, world_size = 0;
     MPI_Comm_rank(comm, &rank);

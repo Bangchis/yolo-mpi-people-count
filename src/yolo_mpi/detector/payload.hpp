@@ -1,6 +1,10 @@
+// Forward declaration because task processing serializes before helper definitions below.
 static std::string serialize_detections(const std::vector<Detection>& detections);
+
+// Forward declaration for the same line-oriented metrics format.
 static std::string serialize_metrics(const Metrics& m);
 
+// Run one offline task and return a text payload containing detections plus metrics.
 static std::string process_one_task_payload(const Config& cfg, DetectorRunner& detector, const Task& task, int rank, double comm_ms = 0.0) {
     Metrics m;
     m.rank = rank;
@@ -24,6 +28,7 @@ static std::string process_one_task_payload(const Config& cfg, DetectorRunner& d
     return serialize_detections(detections) + serialize_metrics(m);
 }
 
+// Run one live JPEG tile task and return the same DET/MET text payload format.
 static std::string process_one_image_task_payload(const Config& cfg, DetectorRunner& detector, const ImageTask& image_task, int rank) {
     Metrics m;
     m.rank = rank;
@@ -46,6 +51,7 @@ static std::string process_one_image_task_payload(const Config& cfg, DetectorRun
     return serialize_detections(detections) + serialize_metrics(m);
 }
 
+// Encode detection rows as line-oriented text so MPI can gather variable-size results.
 static std::string serialize_detections(const std::vector<Detection>& detections) {
     std::ostringstream out;
     out << std::fixed << std::setprecision(4);
@@ -57,6 +63,7 @@ static std::string serialize_detections(const std::vector<Detection>& detections
     return out.str();
 }
 
+// Encode one rank/task timing row for rank_metrics.csv.
 static std::string serialize_metrics(const Metrics& m) {
     std::ostringstream out;
     out << std::fixed << std::setprecision(4);
@@ -66,6 +73,7 @@ static std::string serialize_metrics(const Metrics& m) {
     return out.str();
 }
 
+// Parse one DET line back into a Detection object on rank 0.
 static Detection parse_detection_line(const std::string& line) {
     std::string normalized = line;
     std::replace(normalized.begin(), normalized.end(), ',', ' ');
@@ -76,6 +84,7 @@ static Detection parse_detection_line(const std::string& line) {
     return det;
 }
 
+// Parse one MET line back into a Metrics object on rank 0.
 static Metrics parse_metrics_line(const std::string& line) {
     std::string normalized = line;
     std::replace(normalized.begin(), normalized.end(), ',', ' ');
@@ -86,6 +95,7 @@ static Metrics parse_metrics_line(const std::string& line) {
     return m;
 }
 
+// Split a mixed payload into detection rows and metrics rows.
 static void parse_payload(const std::string& payload, std::vector<Detection>& detections, std::vector<Metrics>& metrics) {
     std::istringstream in(payload);
     std::string line;
@@ -95,6 +105,7 @@ static void parse_payload(const std::string& payload, std::vector<Detection>& de
     }
 }
 
+// Sum repeated task-level metric rows into one row per MPI rank.
 static std::vector<Metrics> aggregate_metrics_by_rank(const std::vector<Metrics>& rows) {
     std::map<int, Metrics> grouped;
     for (const auto& row : rows) {

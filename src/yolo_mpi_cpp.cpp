@@ -21,6 +21,7 @@
 #include "yolo_mpi/live/frame_processing.hpp"
 #include "yolo_mpi/live/runner.hpp"
 
+// Program entrypoint for both offline video benchmark mode and live camera mode.
 int main(int argc, char** argv) {
     std::signal(SIGPIPE, SIG_IGN);
     MPI_Init(&argc, &argv);

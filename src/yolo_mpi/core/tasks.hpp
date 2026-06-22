@@ -1,3 +1,4 @@
+// Parse a tile grid such as "4x3" into column and row counts.
 static std::pair<int, int> parse_tile_grid(const std::string& grid) {
     auto pos = grid.find('x');
     if (pos == std::string::npos) pos = grid.find('X');
@@ -10,6 +11,7 @@ static std::pair<int, int> parse_tile_grid(const std::string& grid) {
     return {cols, rows};
 }
 
+// Build the full offline workload: every selected frame split into overlapped tiles.
 static std::vector<Task> make_tasks(const Config& cfg) {
     auto [cols, rows] = parse_tile_grid(cfg.tile_grid);
     std::vector<Task> tasks;

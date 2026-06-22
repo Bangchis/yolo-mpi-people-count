@@ -1,3 +1,4 @@
+// Worker-side live loop: receive JPEG tiles, run detector, send payload back.
 static void live_worker_loop(const Config& cfg, int rank) {
     const int task_tag = 50;
     const int stop_tag = 60;
@@ -16,6 +17,7 @@ static void live_worker_loop(const Config& cfg, int rank) {
     }
 }
 
+// Ask every non-master live rank to exit its worker loop.
 static void stop_live_workers(int world_size) {
     const int stop_tag = 60;
     for (int worker = 1; worker < world_size; ++worker) {
@@ -23,6 +25,7 @@ static void stop_live_workers(int world_size) {
     }
 }
 
+// Main live-camera pipeline entrypoint called by all ranks.
 static void run_live(const Config& cfg, int rank, int world_size) {
     if (rank != 0) {
         // Non-master ranks do not touch the camera or GUI; they only receive tiles.

@@ -1,3 +1,4 @@
+// Replace one placeholder token everywhere inside a detector command template.
 static std::string replace_all(std::string s, const std::string& from, const std::string& to) {
     size_t pos = 0;
     while ((pos = s.find(from, pos)) != std::string::npos) {
@@ -7,6 +8,7 @@ static std::string replace_all(std::string s, const std::string& from, const std
     return s;
 }
 
+// Fill a user-supplied command template with the current config and task fields.
 static std::string command_for_task(std::string command, const Config& cfg, const Task& task) {
     command = replace_all(command, "{source}", cfg.source);
     command = replace_all(command, "{model}", cfg.model);
@@ -23,6 +25,7 @@ static std::string command_for_task(std::string command, const Config& cfg, cons
     return command;
 }
 
+// Deterministic fake detector used by build/smoke/report tests without loading YOLO.
 static std::vector<Detection> mock_detector(const Task& task, int rank) {
     std::vector<Detection> detections;
     int w = std::max(1, task.x2 - task.x1);
@@ -48,6 +51,7 @@ static std::vector<Detection> mock_detector(const Task& task, int rank) {
     return detections;
 }
 
+// Run an external detector command and parse lines formatted as x1,y1,x2,y2,conf.
 static std::vector<Detection> command_detector(const Config& cfg, const Task& task, int rank) {
     std::vector<Detection> detections;
     std::string command = command_for_task(cfg.detector_command, cfg, task);
@@ -82,6 +86,7 @@ static std::vector<Detection> command_detector(const Config& cfg, const Task& ta
     return detections;
 }
 
+// Simple prefix check used for pipe protocols.
 static bool starts_with(const std::string& value, const std::string& prefix) {
     return value.rfind(prefix, 0) == 0;
 }

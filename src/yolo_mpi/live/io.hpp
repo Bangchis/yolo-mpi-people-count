@@ -1,6 +1,7 @@
 // Live camera pipeline.
 // Rank 0 captures frames, distributes JPEG tiles, gathers boxes, and displays.
 
+// Build argv for the Python camera/tile source process.
 static std::vector<std::string> camera_source_args(const Config& cfg) {
     std::vector<std::string> args = {
         cfg.python_bin,
@@ -24,6 +25,7 @@ static std::vector<std::string> camera_source_args(const Config& cfg) {
     return args;
 }
 
+// Build argv for the Python live viewer process.
 static std::vector<std::string> viewer_args(const Config& cfg) {
     return {
         cfg.python_bin,
@@ -33,6 +35,7 @@ static std::vector<std::string> viewer_args(const Config& cfg) {
     };
 }
 
+// Parse a FRAME line emitted by camera_tile_source.py.
 static bool parse_camera_frame_line(const std::string& line, CameraFrame& frame) {
     std::istringstream iss(line);
     std::string tag;
@@ -42,6 +45,7 @@ static bool parse_camera_frame_line(const std::string& line, CameraFrame& frame)
     return tag == "FRAME";
 }
 
+// Parse one TILE line emitted after a FRAME line.
 static bool parse_camera_tile_line(const std::string& line, ImageTask& image_task) {
     std::istringstream iss(line);
     std::string tag;
@@ -59,6 +63,7 @@ static bool parse_camera_tile_line(const std::string& line, ImageTask& image_tas
     return tag == "TILE";
 }
 
+// Read one complete frame plus all of its JPEG tile tasks from the camera process.
 static bool read_next_camera_frame(OutputPipeProcess& camera, CameraFrame& frame) {
     frame = CameraFrame{};
     std::string line;
@@ -103,6 +108,7 @@ static bool read_next_camera_frame(OutputPipeProcess& camera, CameraFrame& frame
     return !frame.tiles.empty();
 }
 
+// Serialize one live JPEG tile so rank 0 can send it to a worker rank.
 static std::string serialize_image_task(const ImageTask& image_task) {
     std::ostringstream out;
     const auto& task = image_task.task;
@@ -118,6 +124,7 @@ static std::string serialize_image_task(const ImageTask& image_task) {
     return out.str();
 }
 
+// Parse a serialized live JPEG tile received by a worker rank.
 static ImageTask parse_image_task_payload(const std::string& payload) {
     ImageTask image_task;
     std::istringstream iss(payload);
@@ -139,6 +146,7 @@ static ImageTask parse_image_task_payload(const std::string& payload) {
     return image_task;
 }
 
+// Send a full frame and its final boxes to the viewer process.
 static void send_frame_to_viewer(InputPipeProcess& viewer, const CameraFrame& frame, const std::vector<Detection>& detections) {
     std::ostringstream header;
     header << "FRAME " << frame.frame_id << " " << frame.width << " " << frame.height << " "
@@ -153,6 +161,7 @@ static void send_frame_to_viewer(InputPipeProcess& viewer, const CameraFrame& fr
     viewer.write_line("END_FRAME " + std::to_string(frame.frame_id));
 }
 
+// Write per-frame live latency/count records.
 static void write_live_events(const fs::path& path, const std::vector<LiveFrameEvent>& events) {
     std::ofstream f(path);
     f << "frame_id,person_count,tasks,capture_ms,latency_ms\n";
