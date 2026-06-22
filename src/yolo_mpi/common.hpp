@@ -59,14 +59,14 @@ struct Config {
     std::string detector = "mock";
     std::string detector_command;
     std::string python_bin = ".venv/bin/python";
-    std::string worker_script = "scripts/yolo_worker.py";
+    std::string worker_script = "scripts/runtime/yolo_worker.py";
     bool cpu_fallback = true;
     int sleep_ms = 0;
     bool live = false;
     int camera_index = 0;
     std::string live_video_source;
-    std::string camera_script = "scripts/camera_tile_source.py";
-    std::string viewer_script = "scripts/live_viewer.py";
+    std::string camera_script = "scripts/runtime/camera_tile_source.py";
+    std::string viewer_script = "scripts/runtime/live_viewer.py";
     bool live_view = false;
     bool live_master_compute = true;
     bool live_anchor_full_frame = false;

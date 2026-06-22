@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/yolo_common.sh"
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../lib/yolo_common.sh"
 
 bash scripts/build.sh
 prepare_yolo_runtime
@@ -20,8 +20,8 @@ cpp_cmd=(build/yolo_mpi_cpp
   --source "camera:${YOLO_CAMERA_INDEX:-0}"
   --camera-index "${YOLO_CAMERA_INDEX:-0}"
   --live-video-source "${YOLO_LIVE_VIDEO_SOURCE:-}"
-  --camera-script "${YOLO_CAMERA_SCRIPT:-scripts/camera_tile_source.py}"
-  --viewer-script "${YOLO_VIEWER_SCRIPT:-scripts/live_viewer.py}"
+  --camera-script "${YOLO_CAMERA_SCRIPT:-scripts/runtime/camera_tile_source.py}"
+  --viewer-script "${YOLO_VIEWER_SCRIPT:-scripts/runtime/live_viewer.py}"
   --live-view "${YOLO_LIVE_VIEW:-1}"
   --live-master-compute "${YOLO_LIVE_MASTER_COMPUTE:-1}"
   --live-anchor-full-frame "${YOLO_LIVE_ANCHOR_FULL_FRAME:-0}"
@@ -52,7 +52,7 @@ cpp_cmd=(build/yolo_mpi_cpp
   --height "${YOLO_FRAME_HEIGHT:-720}"
   --detector "${YOLO_DETECTOR:-yolo}"
   --python "$python_bin"
-  --worker-script "${YOLO_WORKER_SCRIPT:-scripts/yolo_worker.py}"
+  --worker-script "${YOLO_WORKER_SCRIPT:-scripts/runtime/yolo_worker.py}"
   --cpu-fallback "${YOLO_CPU_FALLBACK:-1}"
   --sleep-ms "${YOLO_SLEEP_MS:-0}"
   --verify 0

@@ -12,7 +12,7 @@ There is no Python MPI implementation. Python is used only as a local per-rank
 YOLO inference worker over stdin/stdout, plus small helpers for MPS evidence,
 rendering, assets, and plotting.
 
-Each MPI rank starts one `scripts/yolo_worker.py` process when
+Each MPI rank starts one `scripts/runtime/yolo_worker.py` process when
 `--detector yolo` is selected. The rank sends task coordinates to that local
 worker, receives person bounding boxes, remaps tile-local boxes to frame-global
 coordinates in C++, and rank 0 performs global NMS and counting.

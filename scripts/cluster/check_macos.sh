@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/yolo_common.sh"
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../lib/yolo_common.sh"
 
 timestamp="$(date +%Y%m%d-%H%M%S)"
 run_dir="${YOLO_RUN_DIR:-results/evidence_${timestamp}}"
@@ -23,14 +23,14 @@ log="$evidence_dir/cluster_evidence.txt"
   echo "git_commit=$(git rev-parse HEAD 2>/dev/null || true)"
   echo
   echo "LOCAL_NODE"
-  bash scripts/collect_macos_node_info.sh
+  bash scripts/cluster/collect_node_info.sh
   echo
   echo "HOSTFILE_CONTENT"
   cat "$hostfile"
 } > "$log"
 
 cp "$hostfile" "$evidence_dir/hosts.used"
-python3 scripts/summarize_host_slots.py \
+python3 scripts/cluster/summarize_host_slots.py \
   --hostfile "$hostfile" \
   --output "$evidence_dir/host_slots.csv" \
   --summary "$evidence_dir/host_slots.env" >> "$log" 2>&1 || true

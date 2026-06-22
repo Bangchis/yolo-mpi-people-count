@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/yolo_common.sh"
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../lib/yolo_common.sh"
 
 if [[ ! -f "${YOLO_CLUSTER_ENV:-configs/cluster_macos.env}" ]]; then
   echo "Missing configs/cluster_macos.env. Copy configs/cluster_macos.env.example and fill macOS IP/user values first." >&2
@@ -30,17 +30,17 @@ echo "CLUSTER_YOLO_SMOKE_DIR=$YOLO_RUN_DIR"
 
 echo
 echo "PHASE 1/6: local setup and model"
-bash scripts/setup_yolo_macos.sh
+bash scripts/cluster/setup_yolo_macos.sh
 prepare_yolo_runtime
 
 echo
 echo "PHASE 2/6: sync repo/model/video to macOS nodes"
-bash scripts/sync_to_nodes.sh
+bash scripts/cluster/sync_to_nodes.sh
 
 if [[ "${YOLO_SKIP_REMOTE_SETUP:-0}" != "1" ]]; then
   echo
   echo "PHASE 3/6: remote setup"
-  YOLO_SETUP_REMOTE=1 bash scripts/setup_yolo_macos.sh
+  YOLO_SETUP_REMOTE=1 bash scripts/cluster/setup_yolo_macos.sh
 else
   echo
   echo "PHASE 3/6: remote setup skipped"
@@ -48,22 +48,22 @@ fi
 
 echo
 echo "PHASE 4/6: cluster evidence"
-bash scripts/check_cluster_macos.sh
+bash scripts/cluster/check_macos.sh
 
 echo
 echo "PHASE 5/6: MPS evidence on all ranks"
 mpi=()
 make_mpi_prefix "$YOLO_EVIDENCE_NP" "$YOLO_HOSTFILE" "$YOLO_USE_HOSTFILE" mpi
 rank_cmd=()
-make_rank_command rank_cmd "$python_bin" scripts/check_mps.py
+make_rank_command rank_cmd "$python_bin" scripts/cluster/check_mps.py
 echo "COMMAND: ${mpi[*]} ${rank_cmd[*]}"
 "${mpi[@]}" "${rank_cmd[@]}" | tee "$YOLO_EVIDENCE_DIR/mps_evidence.txt"
 
 echo
 echo "PHASE 6/6: real YOLO C++/OpenMPI correctness smoke"
-bash scripts/run_demo_correctness.sh
+bash scripts/run/demo_correctness.sh
 
-.venv/bin/python scripts/check_final_readiness.py \
+.venv/bin/python scripts/report/check_final_readiness.py \
   --run-dir "$YOLO_RUN_DIR" \
   --hostfile "$YOLO_HOSTFILE" \
   --require-host master \

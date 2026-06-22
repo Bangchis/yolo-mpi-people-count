@@ -7,7 +7,7 @@ from pathlib import Path
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--input", required=True, help="speedup.csv from run_speedup_sweep.sh")
+    parser.add_argument("--input", required=True, help="speedup.csv from scripts/run/speedup_sweep.sh")
     parser.add_argument("--output", required=True, help="output PNG")
     args = parser.parse_args()
 

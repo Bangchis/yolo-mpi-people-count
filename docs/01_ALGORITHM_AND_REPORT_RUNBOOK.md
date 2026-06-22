@@ -54,7 +54,7 @@ YOLO inference on a tile/frame does not need other tasks.
 OpenMPI creates CPU-level operating-system processes:
 
 ```text
-MPI rank -> C++ process -> local yolo_worker.py -> YOLO on cpu or mps
+MPI rank -> C++ process -> scripts/runtime/yolo_worker.py -> YOLO on cpu or mps
 ```
 
 OpenMPI does not directly control the GPU. If `YOLO_DEVICE=mps`, each MPI
@@ -165,7 +165,7 @@ On the master:
 ```bash
 cd "/Users/bangbang/Desktop/code python/yolo-mpi-people-count"
 
-.venv/bin/python scripts/download_hf_assets.py \
+.venv/bin/python scripts/assets/download_hf_assets.py \
   --repo-id Bangchis/yolo-mpi-people-count-assets
 
 bash scripts/build.sh
@@ -174,10 +174,10 @@ bash scripts/build.sh
 When all three Macs are available:
 
 ```bash
-bash scripts/write_macos_ssh_config.sh
-bash scripts/sync_to_nodes.sh
-YOLO_SETUP_REMOTE=1 bash scripts/setup_yolo_macos.sh
-bash scripts/check_cluster_macos.sh
+bash scripts/cluster/write_ssh_config.sh
+bash scripts/cluster/sync_to_nodes.sh
+YOLO_SETUP_REMOTE=1 bash scripts/cluster/setup_yolo_macos.sh
+bash scripts/cluster/check_macos.sh
 ```
 
 Expected cluster aliases:
@@ -210,7 +210,7 @@ YOLO_DETECTOR=yolo \
 YOLO_TILE_OWNER_FILTER=1 \
 YOLO_DEDUP_NEAR_CAMERA=0 \
 YOLO_LIVE_TEMPORAL_DEDUP=0 \
-bash scripts/run_live_camera_demo.sh
+bash scripts/run/live_camera_demo.sh
 ```
 
 ### Master-only CPU live with multiple MPI processes
@@ -241,7 +241,7 @@ YOLO_DEDUP_CENTER=0.45 \
 YOLO_DEDUP_AXIS_OVERLAP=0.65 \
 YOLO_DEDUP_GAP=0.12 \
 YOLO_LIVE_TEMPORAL_DEDUP=0 \
-bash scripts/run_live_camera_demo.sh
+bash scripts/run/live_camera_demo.sh
 ```
 
 ### Three-Mac MPS live demo
@@ -249,7 +249,7 @@ bash scripts/run_live_camera_demo.sh
 Use this for the impressive presentation demo, not as the main CPU benchmark:
 
 ```bash
-bash scripts/sync_to_nodes.sh
+bash scripts/cluster/sync_to_nodes.sh
 
 YOLO_NP=3 \
 YOLO_LIVE_HOSTFILE=configs/hosts_macos_live \
@@ -267,7 +267,7 @@ YOLO_DETECTOR=yolo \
 YOLO_TILE_OWNER_FILTER=1 \
 YOLO_DEDUP_NEAR_CAMERA=0 \
 YOLO_LIVE_TEMPORAL_DEDUP=0 \
-bash scripts/run_live_camera_demo.sh
+bash scripts/run/live_camera_demo.sh
 ```
 
 ## 6. Offline Report Experiments
@@ -311,7 +311,7 @@ YOLO_CONF=0.25 \
 YOLO_IOU=0.50 \
 YOLO_SCHEDULE=dynamic \
 YOLO_RENDER_VIDEO=1 \
-bash scripts/run_demo_correctness.sh
+bash scripts/run/demo_correctness.sh
 ```
 
 Evidence to include:
@@ -343,7 +343,7 @@ YOLO_SCHEDULE=dynamic \
 YOLO_IMGSZ=416 \
 YOLO_CONF=0.25 \
 YOLO_FIND_FRAME_LIST="100 200 400 600 800 1000" \
-bash scripts/run_find_N.sh
+bash scripts/run/find_N.sh
 ```
 
 If the cluster has more than 12 physical cores and you choose a larger `P_max`,
@@ -393,7 +393,7 @@ YOLO_PERF_FRAMES=$N \
 YOLO_IMGSZ=416 \
 YOLO_CONF=0.25 \
 YOLO_RENDER_VIDEO=0 \
-bash scripts/run_demo_perf.sh
+bash scripts/run/demo_perf.sh
 ```
 
 Use `rank_metrics.csv` to draw:
@@ -431,7 +431,7 @@ YOLO_SCHEDULE=dynamic \
 YOLO_SPEEDUP_FRAMES=$((2*N)) \
 YOLO_IMGSZ=416 \
 YOLO_CONF=0.25 \
-bash scripts/run_speedup_sweep.sh
+bash scripts/run/speedup_sweep.sh
 ```
 
 If the physical core count is larger than 12, use:
@@ -519,7 +519,7 @@ demo because multiple processes on the same Mac would contend for one Apple GPU.
    fixed video input for experiments, live camera for demo.
 
 5. Network/SSH/MPI fragility:
-   hostfiles, evidence logs, sync scripts, and check_cluster_macos.sh.
+   hostfiles, evidence logs, sync scripts, and scripts/cluster/check_macos.sh.
 ```
 
 ## 8. Report Checklist

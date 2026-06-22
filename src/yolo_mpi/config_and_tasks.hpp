@@ -76,7 +76,7 @@ static Config parse_args(int argc, char** argv) {
                 << "  --master-compute 1 lets rank 0 use the master GPU in dynamic mode\n"
                 << "  --detector mock|yolo|command\n"
                 << "  --live 1 --camera-index 0 --live-view 1\n"
-                << "  --python .venv/bin/python --worker-script scripts/yolo_worker.py\n";
+                << "  --python .venv/bin/python --worker-script scripts/runtime/yolo_worker.py\n";
             std::exit(0);
         } else {
             throw std::runtime_error("Unknown option: " + key);

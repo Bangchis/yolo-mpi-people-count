@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/yolo_common.sh"
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../lib/yolo_common.sh"
 
 bash scripts/build.sh
 prepare_yolo_runtime
@@ -44,7 +44,7 @@ for np in ${YOLO_P_LIST:-1 2 3}; do
     --height "${YOLO_FRAME_HEIGHT:-720}"
     --detector "${YOLO_DETECTOR:-yolo}"
     --python "$python_bin"
-    --worker-script "${YOLO_WORKER_SCRIPT:-scripts/yolo_worker.py}"
+    --worker-script "${YOLO_WORKER_SCRIPT:-scripts/runtime/yolo_worker.py}"
     --cpu-fallback "${YOLO_CPU_FALLBACK:-1}"
     --sleep-ms "${YOLO_SLEEP_MS:-0}"
     --master-compute "${YOLO_MASTER_COMPUTE:-1}"
@@ -82,7 +82,7 @@ PY
 done
 
 if [[ "${YOLO_PLOT_SPEEDUP:-1}" == "1" ]]; then
-  "$python_bin" plots/plot_speedup.py \
+  "$python_bin" scripts/report/plots/plot_speedup.py \
     --input "$csv" \
     --output "$run_dir/figures/speedup.png" || true
 fi

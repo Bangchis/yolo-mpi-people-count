@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/yolo_common.sh"
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../lib/yolo_common.sh"
 
 timestamp="$(date +%Y%m%d-%H%M%S)"
 report_dir="${YOLO_REPORT_DIR:-results/report_mot17_mini_${timestamp}}"
@@ -55,7 +55,7 @@ if [[ ! -f "$YOLO_SOURCE" ]]; then
   cat >&2 <<EOF
 Missing YOLO_SOURCE=$YOLO_SOURCE
 Download the MOT17-mini assets first, for example:
-  $python_bin scripts/download_hf_assets.py \\
+  $python_bin scripts/assets/download_hf_assets.py \\
     --repo-id Bangchis/yolo-mpi-people-count-assets \\
     --asset data/mot17-mini/MOT17-02-SDP-300_960x540.mp4 \\
     --asset data/mot17-mini/MOT17-02-SDP-300_counts.csv
@@ -75,7 +75,7 @@ echo "PHASE 0/6: build and runtime preparation"
 bash scripts/build.sh
 prepare_yolo_runtime
 
-"$python_bin" scripts/probe_video.py --source "$YOLO_SOURCE" --format json > "$report_dir/dataset/video_info.json"
+"$python_bin" scripts/assets/probe_video.py --source "$YOLO_SOURCE" --format json > "$report_dir/dataset/video_info.json"
 cp "$YOLO_GT_COUNTS" "$report_dir/dataset/gt_counts.csv"
 
 git_rev="$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
@@ -120,7 +120,7 @@ run_perf() {
   YOLO_TILE_GRID="$tile_grid" \
   YOLO_RENDER_VIDEO=0 \
   YOLO_PERF_SCHEDULE="$YOLO_SCHEDULE" \
-  bash scripts/run_demo_perf.sh
+  bash scripts/run/demo_perf.sh
 
   echo "${run_label}_DIR=$out_dir"
 }
@@ -133,7 +133,7 @@ run_perf "$serial_dir" "$correctness_frames" 1 0 "$report_hostfile" "$main_tile_
 run_perf "$mpi_dir" "$correctness_frames" "$report_np" "$report_use_hostfile" "$report_hostfile" "$main_tile_grid" "CORRECTNESS_MPI"
 
 correctness_status=0
-"$python_bin" scripts/compare_frame_counts.py \
+"$python_bin" scripts/report/compare_frame_counts.py \
   --serial "$serial_dir/frame_counts.csv" \
   --mpi "$mpi_dir/frame_counts.csv" \
   --output "$report_dir/correctness/correctness_compare.csv" \
@@ -146,12 +146,12 @@ echo
 echo "PHASE 2/6: YOLO count accuracy against MOT17 ground truth"
 accuracy_pred_dir="$report_dir/accuracy/prediction"
 run_perf "$accuracy_pred_dir" "$accuracy_frames" "$report_np" "$report_use_hostfile" "$report_hostfile" "$main_tile_grid" "ACCURACY_PREDICTION"
-"$python_bin" scripts/evaluate_count_accuracy.py \
+"$python_bin" scripts/report/evaluate_count_accuracy.py \
   --predicted "$accuracy_pred_dir/frame_counts.csv" \
   --ground-truth "$YOLO_GT_COUNTS" \
   --summary-output "$report_dir/accuracy/accuracy.csv" \
   --per-frame-output "$report_dir/accuracy/per_frame_accuracy.csv"
-"$python_bin" plots/plot_count_error.py \
+"$python_bin" scripts/report/plots/plot_count_error.py \
   --input "$report_dir/accuracy/per_frame_accuracy.csv" \
   --output "$report_dir/accuracy/count_error_plot.png"
 
@@ -162,8 +162,8 @@ YOLO_NP="$report_np" \
 YOLO_USE_HOSTFILE="$report_use_hostfile" \
 YOLO_HOSTFILE="$report_hostfile" \
 YOLO_TILE_GRID="$main_tile_grid" \
-bash scripts/run_find_N.sh
-"$python_bin" plots/plot_find_n.py \
+bash scripts/run/find_N.sh
+"$python_bin" scripts/report/plots/plot_find_n.py \
   --input "$report_dir/find_N/raw/find_N.csv" \
   --output "$report_dir/find_N/figures/find_N_runtime.png"
 
@@ -175,7 +175,7 @@ for grid in $YOLO_GRANULARITY_GRIDS; do
   safe_grid="${grid//x/_x_}"
   grid_dir="$report_dir/granularity/grid_${grid}"
   run_perf "$grid_dir" "$granularity_frames" "$report_np" "$report_use_hostfile" "$report_hostfile" "$grid" "GRANULARITY_${safe_grid}"
-  "$python_bin" plots/plot_rank_metrics.py \
+  "$python_bin" scripts/report/plots/plot_rank_metrics.py \
     --input "$grid_dir/rank_metrics.csv" \
     --output "$grid_dir/rank_metrics_stacked.png" \
     --summary-output "$grid_dir/granularity_summary.csv" \
@@ -194,7 +194,7 @@ YOLO_RUN_DIR="$report_dir/speedup" \
 YOLO_USE_HOSTFILE="$report_use_hostfile" \
 YOLO_SWEEP_HOSTFILE="$report_hostfile" \
 YOLO_TILE_GRID="$main_tile_grid" \
-bash scripts/run_speedup_sweep.sh
+bash scripts/run/speedup_sweep.sh
 
 echo
 echo "PHASE 6/6: done"

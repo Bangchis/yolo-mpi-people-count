@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/yolo_common.sh"
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../lib/yolo_common.sh"
 
 bash scripts/build.sh
 prepare_yolo_runtime
@@ -43,7 +43,7 @@ for frames in ${YOLO_FIND_FRAME_LIST:-50 100 200 400 600 800}; do
     --height "${YOLO_FRAME_HEIGHT:-720}"
     --detector "${YOLO_DETECTOR:-yolo}"
     --python "$python_bin"
-    --worker-script "${YOLO_WORKER_SCRIPT:-scripts/yolo_worker.py}"
+    --worker-script "${YOLO_WORKER_SCRIPT:-scripts/runtime/yolo_worker.py}"
     --cpu-fallback "${YOLO_CPU_FALLBACK:-1}"
     --sleep-ms "${YOLO_SLEEP_MS:-0}"
     --master-compute "${YOLO_MASTER_COMPUTE:-1}"

@@ -15,7 +15,7 @@ mpirun
   -> build/yolo_mpi_cpp
     -> tao danh sach task frame/tile
     -> chia task cho MPI rank
-    -> moi rank goi scripts/yolo_worker.py neu detector=yolo
+    -> moi rank goi scripts/runtime/yolo_worker.py neu detector=yolo
     -> rank 0 gom bbox
     -> rank 0 loc trung/NMS
     -> ghi CSV ket qua
@@ -51,7 +51,7 @@ rank 0 doc camera
 
 `src/yolo_mpi/detector_worker.hpp`
 
-- Quan ly tien trinh Python `scripts/yolo_worker.py`.
+- Quan ly tien trinh Python `scripts/runtime/yolo_worker.py`.
 - Moi MPI rank giu worker song de model YOLO chi load mot lan.
 - Chuyen task sang worker va nhan bbox tra ve.
 
@@ -74,30 +74,30 @@ rank 0 doc camera
 
 ## 3. Python Files Quan Trong
 
-`scripts/yolo_worker.py`
+`scripts/runtime/yolo_worker.py`
 
 - Worker inference cuc bo cho moi rank.
 - Nhan lenh `TASK` hoac `IMAGE` qua stdin.
 - Tra bbox ve stdout.
 
-`scripts/camera_tile_source.py`
+`scripts/runtime/camera_tile_source.py`
 
 - Chi dung cho live camera.
 - Doc camera/video tren master, cat tile JPEG.
 
-`scripts/live_viewer.py`
+`scripts/runtime/live_viewer.py`
 
 - Hien cua so OpenCV tren master.
 
-`scripts/evaluate_count_accuracy.py`
+`scripts/report/evaluate_count_accuracy.py`
 
 - So sanh YOLO count voi MOT17 ground truth count.
 
-`scripts/compare_frame_counts.py`
+`scripts/report/compare_frame_counts.py`
 
 - So sanh serial vs MPI de chung minh song song khong doi ket qua.
 
-`plots/*.py`
+`scripts/report/plots/*.py`
 
 - Ve hinh cho report: find N, speedup, rank metrics, count error.
 
@@ -107,23 +107,23 @@ rank 0 doc camera
 
 - Build C++ binary.
 
-`scripts/check_cluster_macos.sh`
+`scripts/cluster/check_macos.sh`
 
 - Check SSH/MPI/hostfile tren 3 may.
 
-`scripts/sync_to_nodes.sh`
+`scripts/cluster/sync_to_nodes.sh`
 
 - Sync repo, model, data sang node1/node2.
 
-`scripts/run_report_mot17_mini.sh`
+`scripts/run/report_mot17_mini.sh`
 
 - Chay day du thi nghiem nho de lay so lieu report nhanh.
 
-`scripts/run_report_mot17_fullseq.sh`
+`scripts/run/report_mot17_fullseq.sh`
 
 - Chay report voi MOT17 full sequence chinh.
 
-`scripts/run_mot17_fullseq_accuracy_suite.sh`
+`scripts/run/mot17_fullseq_accuracy_suite.sh`
 
 - Chay accuracy tren nhieu full sequence: MOT17-02, 05, 09, 10.
 
@@ -148,17 +148,17 @@ Nguoi 3: Cluster va asset/data
 
 Nguoi 4: Report va plots
 
-- Doc `run_report_mot17_mini.sh`, `run_report_mot17_fullseq.sh`, `plots/*.py`.
+- Doc `scripts/run/report_mot17_mini.sh`, `scripts/run/report_mot17_fullseq.sh`, `scripts/report/plots/*.py`.
 - Phu trach bang bieu, accuracy voi MOT17 ground truth, tong hop ket qua.
 
 ## 6. File Khong Can Hoc Sau
 
 Nhung file nay la tool ho tro, chi can biet cong dung:
 
-- `scripts/upload_hf_assets.py`
-- `scripts/download_hf_assets.py`
-- `scripts/prepare_mot17_mini.py`
-- `scripts/render_demo_video.py`
-- `scripts/check_final_readiness.py`
+- `scripts/assets/upload_hf_assets.py`
+- `scripts/assets/download_hf_assets.py`
+- `scripts/assets/prepare_mot17_mini.py`
+- `scripts/runtime/render_demo_video.py`
+- `scripts/report/check_final_readiness.py`
 
 Khong nen xoa chung vi chung giup setup lai may moi va tao bang bieu report.

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/yolo_common.sh"
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../lib/yolo_common.sh"
 
 bash scripts/build.sh
 prepare_yolo_runtime
@@ -39,7 +39,7 @@ cpp_cmd=(build/yolo_mpi_cpp
   --height "${YOLO_FRAME_HEIGHT:-720}"
   --detector "${YOLO_DETECTOR:-yolo}"
   --python "$python_bin"
-  --worker-script "${YOLO_WORKER_SCRIPT:-scripts/yolo_worker.py}"
+  --worker-script "${YOLO_WORKER_SCRIPT:-scripts/runtime/yolo_worker.py}"
   --cpu-fallback "${YOLO_CPU_FALLBACK:-1}"
   --sleep-ms "${YOLO_SLEEP_MS:-0}"
   --master-compute "${YOLO_MASTER_COMPUTE:-1}"
@@ -57,7 +57,7 @@ echo "COMMAND: ${mpi[*]} ${rank_cmd[*]}"
 pull_rank_output_if_needed "$run_dir"
 
 if [[ "${YOLO_RENDER_VIDEO:-1}" == "1" && -f "${YOLO_SOURCE:-data/classroom.mp4}" ]]; then
-  "$python_bin" scripts/render_demo_video.py \
+  "$python_bin" scripts/runtime/render_demo_video.py \
     --source "${YOLO_SOURCE:-data/classroom.mp4}" \
     --bboxes "$run_dir/bboxes.csv" \
     --frames "${YOLO_PERF_FRAMES:-100}" \

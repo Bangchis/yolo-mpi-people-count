@@ -36,7 +36,7 @@ bash scripts/build.sh
 YOLO helper environment on each MacBook:
 
 ```bash
-bash scripts/setup_yolo_macos.sh
+bash scripts/cluster/setup_yolo_macos.sh
 ```
 
 The Python environment is a local detector helper only. It does not use MPI and
@@ -48,7 +48,7 @@ Create the local macOS cluster config on the master machine:
 ```bash
 cp configs/cluster_macos.env.example configs/cluster_macos.env
 nano configs/cluster_macos.env
-bash scripts/write_macos_ssh_config.sh
+bash scripts/cluster/write_ssh_config.sh
 ```
 
 Keep `REMOTE_REPO_DIR=/Users/Shared/yolo-mpi-people-count` unless you know all
@@ -57,18 +57,18 @@ three Macs use the same absolute project path.
 Verify cluster and MPS:
 
 ```bash
-bash scripts/check_cluster_macos.sh
+bash scripts/cluster/check_macos.sh
 mpirun -np 3 --hostfile configs/hosts_macos_gpu \
   --mca btl tcp,self --mca btl_tcp_if_include 192.168.31.0/24 --mca btl_tcp_disable_family 6 \
-  .venv/bin/python scripts/check_mps.py
+  .venv/bin/python scripts/cluster/check_mps.py
 ```
 
 Download the pretrained model on the master, then sync to workers:
 
 ```bash
-.venv/bin/python scripts/download_model.py --model yolo11n.pt --output models/yolo11n.pt
-bash scripts/sync_to_nodes.sh
-YOLO_SETUP_REMOTE=1 bash scripts/setup_yolo_macos.sh
+.venv/bin/python scripts/assets/download_model.py --model yolo11n.pt --output models/yolo11n.pt
+bash scripts/cluster/sync_to_nodes.sh
+YOLO_SETUP_REMOTE=1 bash scripts/cluster/setup_yolo_macos.sh
 ```
 
 ## Hugging Face Assets
@@ -80,7 +80,7 @@ shareable runtime assets on Hugging Face instead:
 ```bash
 .venv/bin/python -m pip install '.[assets]'
 .venv/bin/hf auth login
-.venv/bin/python scripts/upload_hf_assets.py \
+.venv/bin/python scripts/assets/upload_hf_assets.py \
   --repo-id Bangchis/yolo-mpi-people-count-assets
 ```
 
@@ -100,7 +100,7 @@ On a fresh machine, download the same assets with:
 
 ```bash
 .venv/bin/python -m pip install '.[assets]'
-.venv/bin/python scripts/download_hf_assets.py \
+.venv/bin/python scripts/assets/download_hf_assets.py \
   --repo-id Bangchis/yolo-mpi-people-count-assets
 ```
 
@@ -109,14 +109,14 @@ On a fresh machine, download the same assets with:
 Put a classroom video at `data/classroom.mp4`, then run:
 
 ```bash
-bash scripts/run_cluster_yolo_smoke.sh
-bash scripts/sync_to_nodes.sh
-bash scripts/run_demo_correctness.sh
-bash scripts/run_demo_perf.sh
+bash scripts/run/cluster_yolo_smoke.sh
+bash scripts/cluster/sync_to_nodes.sh
+bash scripts/run/demo_correctness.sh
+bash scripts/run/demo_perf.sh
 ```
 
 By default the C++ executable uses `YOLO_DETECTOR=yolo`, which runs real
-Ultralytics YOLO inference through `scripts/yolo_worker.py`. Use
+Ultralytics YOLO inference through `scripts/runtime/yolo_worker.py`. Use
 `YOLO_DETECTOR=mock` only for fast build/scheduler tests without AI
 dependencies.
 
@@ -156,8 +156,8 @@ First make sure SSH aliases and remote sync work:
 ssh master hostname
 ssh node1 hostname
 ssh node2 hostname
-bash scripts/sync_to_nodes.sh
-YOLO_SETUP_REMOTE=1 bash scripts/setup_yolo_macos.sh
+bash scripts/cluster/sync_to_nodes.sh
+YOLO_SETUP_REMOTE=1 bash scripts/cluster/setup_yolo_macos.sh
 ```
 
 Run the real camera on the master:
@@ -180,7 +180,7 @@ YOLO_DEDUP_NEAR_CAMERA=0 \
 YOLO_DEDUP_LARGE_AREA_RATIO=0.12 \
 YOLO_DEDUP_MERGE=1 \
 YOLO_LIVE_TEMPORAL_DEDUP=0 \
-bash scripts/run_live_camera_demo.sh
+bash scripts/run/live_camera_demo.sh
 ```
 
 If macOS asks for Camera permission, grant it to Terminal or the IDE terminal,
@@ -201,7 +201,7 @@ boxes, prefer full-frame anchoring over aggressive near-camera merging:
 YOLO_LIVE_ANCHOR_FULL_FRAME=1 \
 YOLO_LIVE_TILE_GRID=2x1 \
 YOLO_DEDUP_NEAR_CAMERA=0 \
-bash scripts/run_live_camera_demo.sh
+bash scripts/run/live_camera_demo.sh
 ```
 
 To test the same live pipeline without opening a camera, feed a video file as
@@ -214,7 +214,7 @@ YOLO_LIVE_VIDEO_SOURCE=data/smoke_people.mp4 \
 YOLO_LIVE_VIEW=0 \
 YOLO_LIVE_FRAMES=1 \
 YOLO_TILE_GRID=1x1 \
-bash scripts/run_live_camera_demo.sh
+bash scripts/run/live_camera_demo.sh
 ```
 
 Live outputs are written under `results/live_camera_*`:
@@ -245,7 +245,7 @@ mpirun -np 3 --hostfile configs/hosts_macos_gpu \
   --frames 20 \
   --detector yolo \
   --python .venv/bin/python \
-  --worker-script scripts/yolo_worker.py \
+  --worker-script scripts/runtime/yolo_worker.py \
   --verify 1 \
   --output results/demo_correctness
 ```
@@ -260,7 +260,7 @@ mpirun -np 2 --oversubscribe --mca btl self,sm,tcp \
 Check a run directory before using it in the report:
 
 ```bash
-.venv/bin/python scripts/check_final_readiness.py \
+.venv/bin/python scripts/report/check_final_readiness.py \
   --run-dir results/demo_correctness_YYYYMMDD-HHMMSS \
   --hostfile configs/hosts_macos_gpu \
   --require-host master --require-host node1 --require-host node2

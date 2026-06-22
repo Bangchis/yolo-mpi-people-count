@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$repo_root"
 
 cluster_env="${YOLO_CLUSTER_ENV:-configs/cluster_macos.env}"
@@ -39,13 +39,13 @@ prepare_yolo_runtime() {
   local detector="${YOLO_DETECTOR:-yolo}"
   local source="${YOLO_SOURCE:-data/classroom.mp4}"
   if [[ "$detector" == "yolo" && "${YOLO_AUTO_DOWNLOAD:-1}" == "1" ]]; then
-    "$python_bin" scripts/download_model.py \
+    "$python_bin" scripts/assets/download_model.py \
       --model "${YOLO_MODEL_NAME:-yolo11n.pt}" \
       --output "${YOLO_MODEL:-models/yolo11n.pt}"
   fi
   if [[ -f "$source" ]]; then
     local probe_output
-    if probe_output="$("$python_bin" scripts/probe_video.py --source "$source" 2>/dev/null)"; then
+    if probe_output="$("$python_bin" scripts/assets/probe_video.py --source "$source" 2>/dev/null)"; then
       eval "$probe_output"
       export YOLO_FRAME_WIDTH YOLO_FRAME_HEIGHT YOLO_VIDEO_FPS YOLO_VIDEO_TOTAL_FRAMES
     fi

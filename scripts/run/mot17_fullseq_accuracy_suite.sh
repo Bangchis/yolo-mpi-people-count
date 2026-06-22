@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/yolo_common.sh"
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../lib/yolo_common.sh"
 
 bash scripts/build.sh
 prepare_yolo_runtime
@@ -60,15 +60,15 @@ for spec in $sequence_specs; do
   YOLO_RUN_DIR="$out/prediction" \
   YOLO_SOURCE="$source" \
   YOLO_PERF_FRAMES="$frames" \
-  bash scripts/run_demo_perf.sh
+  bash scripts/run/demo_perf.sh
 
-  "$python_bin" scripts/evaluate_count_accuracy.py \
+  "$python_bin" scripts/report/evaluate_count_accuracy.py \
     --predicted "$out/prediction/frame_counts.csv" \
     --ground-truth "$gt" \
     --summary-output "$out/accuracy.csv" \
     --per-frame-output "$out/per_frame_accuracy.csv"
 
-  "$python_bin" plots/plot_count_error.py \
+  "$python_bin" scripts/report/plots/plot_count_error.py \
     --input "$out/per_frame_accuracy.csv" \
     --output "$out/count_error_plot.png"
 
