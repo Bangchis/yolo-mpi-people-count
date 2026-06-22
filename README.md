@@ -70,6 +70,37 @@ bash scripts/sync_to_nodes.sh
 YOLO_SETUP_REMOTE=1 bash scripts/setup_yolo_macos.sh
 ```
 
+## Hugging Face Assets
+
+GitHub intentionally does not track runtime assets such as model weights,
+videos, images, build output, local cluster env files, or result logs. Put the
+shareable runtime assets on Hugging Face instead:
+
+```bash
+.venv/bin/python -m pip install '.[assets]'
+.venv/bin/hf auth login
+.venv/bin/python scripts/upload_hf_assets.py \
+  --repo-id YOUR_HF_USERNAME/yolo-mpi-people-count-assets
+```
+
+The upload script includes only:
+
+- `models/yolo11n.pt`
+- `data/smoke_people.mp4`
+- `data/bus.jpg`
+
+It does not upload `configs/cluster_macos.env`, SSH keys, IP-specific evidence,
+`results/`, `runs/`, or `build/`. Use `--private` if the video/image assets show
+people or anything sensitive.
+
+On a fresh machine, download the same assets with:
+
+```bash
+.venv/bin/python -m pip install '.[assets]'
+.venv/bin/python scripts/download_hf_assets.py \
+  --repo-id YOUR_HF_USERNAME/yolo-mpi-people-count-assets
+```
+
 ## Demo
 
 Put a classroom video at `data/classroom.mp4`, then run:

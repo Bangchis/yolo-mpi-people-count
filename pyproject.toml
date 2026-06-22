@@ -16,6 +16,9 @@ helpers = [
   "opencv-python>=4.8",
   "matplotlib>=3.8",
 ]
+assets = [
+  "huggingface_hub>=1.0",
+]
 mps = [
   "torch>=2.2",
 ]
@@ -31,6 +34,7 @@ full = [
   "ultralytics>=8.3",
   "opencv-python>=4.8",
   "matplotlib>=3.8",
+  "huggingface_hub>=1.0",
 ]
 
 [tool.setuptools]
