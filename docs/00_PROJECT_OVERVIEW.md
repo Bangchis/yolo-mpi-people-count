@@ -5,10 +5,12 @@ It deliberately reuses the cluster conventions from
 `parallel-macbook-cluster-setup`, but the runtime is macOS host OpenMPI instead
 of Ubuntu VM OpenMPI so that YOLO can use PyTorch MPS.
 
-The course-facing parallel implementation is `C++17 + OpenMPI` in
-`src/yolo_mpi_cpp.cpp`. There is no Python MPI implementation. Python is used
-only as a local per-rank YOLO inference worker over stdin/stdout, plus small
-helpers for MPS evidence, rendering, and plotting.
+The course-facing parallel implementation is `C++17 + OpenMPI`. The entrypoint
+is `src/yolo_mpi_cpp.cpp`, and the implementation is split into smaller files
+under `src/yolo_mpi/` so each member can read one responsibility at a time.
+There is no Python MPI implementation. Python is used only as a local per-rank
+YOLO inference worker over stdin/stdout, plus small helpers for MPS evidence,
+rendering, assets, and plotting.
 
 Each MPI rank starts one `scripts/yolo_worker.py` process when
 `--detector yolo` is selected. The rank sends task coordinates to that local

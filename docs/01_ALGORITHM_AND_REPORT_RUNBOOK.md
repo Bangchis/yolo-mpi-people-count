@@ -20,9 +20,11 @@ pipeline around YOLO:
 video/frame -> frame/tile tasks -> MPI ranks -> YOLO inference -> bbox merge -> count
 ```
 
-The course-facing parallel implementation is in `src/yolo_mpi_cpp.cpp` using
-`C++17 + OpenMPI`. Python does not use MPI. Python helpers are used only for
-local YOLO inference, camera capture, live display, plotting, and asset upload.
+The course-facing parallel implementation uses `C++17 + OpenMPI`. The short
+entrypoint is `src/yolo_mpi_cpp.cpp`, and the readable implementation sections
+are under `src/yolo_mpi/`. Python does not use MPI. Python helpers are used only
+for local YOLO inference, camera capture, live display, plotting, and asset
+upload.
 
 ## 2. Current Parallel Algorithm
 
@@ -583,4 +585,3 @@ rank 0:
     run global NMS/de-dup
     write counts and metrics
 ```
-

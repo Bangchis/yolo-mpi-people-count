@@ -5,10 +5,11 @@ cluster workflow. The old repo remains untouched and is used as the source of
 truth for naming, hostfile shape, MPI flags, evidence logs, reconnect workflow,
 and benchmark layout.
 
-The required parallel algorithm is implemented only in `C++17 + OpenMPI`
-(`src/yolo_mpi_cpp.cpp`). It owns task decomposition, mapping, scheduling,
-communication, NMS, metrics, correctness checks, and CSV output. There is no
-Python MPI path.
+The required parallel algorithm is implemented only in `C++17 + OpenMPI`.
+`src/yolo_mpi_cpp.cpp` is now a short entrypoint that includes smaller files
+under `src/yolo_mpi/` by responsibility: config/tasks, detector worker, MPI
+scheduling, post-processing/output, and live camera. There is no Python MPI
+path.
 
 By default `YOLO_MASTER_COMPUTE=1`, so rank 0 on the master also runs a local
 YOLO worker on `device=mps`. In dynamic mode the master acts as both coordinator
@@ -83,11 +84,13 @@ shareable runtime assets on Hugging Face instead:
   --repo-id Bangchis/yolo-mpi-people-count-assets
 ```
 
-The upload script includes only:
+The upload script includes shareable runtime assets:
 
 - `models/yolo11n.pt`
 - `data/smoke_people.mp4`
 - `data/bus.jpg`
+- `data/mot17-mini/*`
+- `data/mot17-fullseq/*`
 
 It does not upload `configs/cluster_macos.env`, SSH keys, IP-specific evidence,
 `results/`, `runs/`, or `build/`. Use `--private` if the video/image assets show

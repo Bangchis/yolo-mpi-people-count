@@ -48,7 +48,6 @@ for frames in ${YOLO_FIND_FRAME_LIST:-50 100 200 400 600 800}; do
     --sleep-ms "${YOLO_SLEEP_MS:-0}"
     --master-compute "${YOLO_MASTER_COMPUTE:-1}"
     --verify 0
-    --write-video 0
     --run-id "find_N_${frames}"
     --output "$out")
   if [[ -n "${YOLO_DETECTOR_COMMAND:-}" ]]; then

@@ -44,7 +44,6 @@ cpp_cmd=(build/yolo_mpi_cpp
   --sleep-ms "${YOLO_SLEEP_MS:-0}"
   --master-compute "${YOLO_MASTER_COMPUTE:-1}"
   --verify 1
-  --write-video 1
   --run-id "demo_correctness_${timestamp}"
   --output "$run_dir")
 if [[ -n "${YOLO_DETECTOR_COMMAND:-}" ]]; then

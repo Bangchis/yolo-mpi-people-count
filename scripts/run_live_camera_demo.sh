@@ -56,7 +56,6 @@ cpp_cmd=(build/yolo_mpi_cpp
   --cpu-fallback "${YOLO_CPU_FALLBACK:-1}"
   --sleep-ms "${YOLO_SLEEP_MS:-0}"
   --verify 0
-  --write-video 0
   --run-id "live_camera_${timestamp}"
   --output "$run_dir")
 

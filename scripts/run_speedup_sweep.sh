@@ -49,7 +49,6 @@ for np in ${YOLO_P_LIST:-1 2 3}; do
     --sleep-ms "${YOLO_SLEEP_MS:-0}"
     --master-compute "${YOLO_MASTER_COMPUTE:-1}"
     --verify 0
-    --write-video 0
     --run-id "speedup_p_${np}"
     --output "$out")
   if [[ -n "${YOLO_DETECTOR_COMMAND:-}" ]]; then
