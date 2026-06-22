@@ -16,6 +16,12 @@ DEFAULT_ASSETS = [
     ("data/mot17-mini/README.md", "data/mot17-mini/README.md"),
     ("data/mot17-fullseq/MOT17-02-SDP-600_960x540.mp4", "data/mot17-fullseq/MOT17-02-SDP-600_960x540.mp4"),
     ("data/mot17-fullseq/MOT17-02-SDP-600_counts.csv", "data/mot17-fullseq/MOT17-02-SDP-600_counts.csv"),
+    ("data/mot17-fullseq/MOT17-05-SDP-837_960x540.mp4", "data/mot17-fullseq/MOT17-05-SDP-837_960x540.mp4"),
+    ("data/mot17-fullseq/MOT17-05-SDP-837_counts.csv", "data/mot17-fullseq/MOT17-05-SDP-837_counts.csv"),
+    ("data/mot17-fullseq/MOT17-09-SDP-525_960x540.mp4", "data/mot17-fullseq/MOT17-09-SDP-525_960x540.mp4"),
+    ("data/mot17-fullseq/MOT17-09-SDP-525_counts.csv", "data/mot17-fullseq/MOT17-09-SDP-525_counts.csv"),
+    ("data/mot17-fullseq/MOT17-10-SDP-654_960x540.mp4", "data/mot17-fullseq/MOT17-10-SDP-654_960x540.mp4"),
+    ("data/mot17-fullseq/MOT17-10-SDP-654_counts.csv", "data/mot17-fullseq/MOT17-10-SDP-654_counts.csv"),
     ("data/mot17-fullseq/README.md", "data/mot17-fullseq/README.md"),
 ]
 
