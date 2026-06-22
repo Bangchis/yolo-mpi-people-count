@@ -12,4 +12,3 @@ static std::string hostname() {
 static bool read_bool_arg(const std::string& value) {
     return value == "1" || value == "true" || value == "TRUE" || value == "yes";
 }
-

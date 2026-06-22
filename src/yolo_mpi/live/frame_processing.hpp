@@ -112,4 +112,3 @@ static std::vector<Detection> merge_anchor_and_tile_detections(
     }
     return merge_frame_detections(cfg, combined, frame_width, frame_height);
 }
-

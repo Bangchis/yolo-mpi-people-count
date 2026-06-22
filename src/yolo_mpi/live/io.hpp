@@ -162,4 +162,3 @@ static void write_live_events(const fs::path& path, const std::vector<LiveFrameE
           << event.capture_ms << "," << event.latency_ms << "\n";
     }
 }
-

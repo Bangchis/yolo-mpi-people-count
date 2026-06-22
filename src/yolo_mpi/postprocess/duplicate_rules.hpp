@@ -118,4 +118,3 @@ static std::vector<Detection> nms(const Config& cfg, std::vector<Detection> dete
     }
     return kept;
 }
-

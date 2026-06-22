@@ -31,4 +31,3 @@ static std::string gather_string(const std::string& local, int root, MPI_Comm co
     );
     return gathered;
 }
-

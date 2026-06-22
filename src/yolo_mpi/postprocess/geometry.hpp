@@ -47,4 +47,3 @@ static double axis_gap_ratio(double a1, double a2, double b1, double b2, double 
     double gap = std::max(0.0, std::max(a1, b1) - std::min(a2, b2));
     return scale > 0 ? gap / scale : 0.0;
 }
-

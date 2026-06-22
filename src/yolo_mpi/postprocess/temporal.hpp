@@ -61,4 +61,3 @@ static std::vector<Detection> temporal_dedup_against_previous(
     }
     return nms(cfg, out, frame_width, frame_height);
 }
-

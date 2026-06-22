@@ -92,4 +92,3 @@ static Config parse_args(int argc, char** argv) {
     }
     return cfg;
 }
-

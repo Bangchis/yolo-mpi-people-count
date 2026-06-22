@@ -36,4 +36,3 @@ static std::vector<Task> make_tasks(const Config& cfg) {
     }
     return tasks;
 }
-

@@ -31,4 +31,3 @@ private:
     int rank_;
     std::unique_ptr<YoloWorkerProcess> yolo_worker_;
 };
-
