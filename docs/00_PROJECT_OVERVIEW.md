@@ -7,7 +7,8 @@ of Ubuntu VM OpenMPI so that YOLO can use PyTorch MPS.
 
 The course-facing parallel implementation is `C++17 + OpenMPI`. The entrypoint
 is `src/yolo_mpi_cpp.cpp`, and the implementation is split into smaller files
-under `src/yolo_mpi/` so each member can read one responsibility at a time.
+under `src/yolo_mpi/` so each member can read one responsibility at a time:
+`core`, `detector`, `mpi`, `postprocess`, `output`, and `live`.
 There is no Python MPI implementation. Python is used only as a local per-rank
 YOLO inference worker over stdin/stdout, plus small helpers for MPS evidence,
 rendering, assets, and plotting.

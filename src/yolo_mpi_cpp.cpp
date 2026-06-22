@@ -1,12 +1,25 @@
-#include "yolo_mpi/common.hpp"
+#include "yolo_mpi/core/types.hpp"
 
-// The implementation is split by responsibility so students can read it in
-// course-report order: configuration -> detector -> MPI -> merge/output -> live.
-#include "yolo_mpi/config_and_tasks.hpp"
-#include "yolo_mpi/detector_worker.hpp"
-#include "yolo_mpi/mpi_scheduling.hpp"
-#include "yolo_mpi/postprocess_output.hpp"
-#include "yolo_mpi/live_pipeline.hpp"
+// Course-readable order: core config -> detectors -> MPI -> postprocess -> output -> live.
+#include "yolo_mpi/core/system.hpp"
+#include "yolo_mpi/core/config.hpp"
+#include "yolo_mpi/core/tasks.hpp"
+#include "yolo_mpi/detector/mock_command.hpp"
+#include "yolo_mpi/detector/yolo_worker_process.hpp"
+#include "yolo_mpi/detector/runner.hpp"
+#include "yolo_mpi/detector/payload.hpp"
+#include "yolo_mpi/mpi/communication.hpp"
+#include "yolo_mpi/mpi/static_scheduler.hpp"
+#include "yolo_mpi/mpi/protocol.hpp"
+#include "yolo_mpi/mpi/dynamic_scheduler.hpp"
+#include "yolo_mpi/postprocess/geometry.hpp"
+#include "yolo_mpi/postprocess/duplicate_rules.hpp"
+#include "yolo_mpi/postprocess/temporal.hpp"
+#include "yolo_mpi/postprocess/frame_merge.hpp"
+#include "yolo_mpi/output/csv.hpp"
+#include "yolo_mpi/live/io.hpp"
+#include "yolo_mpi/live/frame_processing.hpp"
+#include "yolo_mpi/live/runner.hpp"
 
 int main(int argc, char** argv) {
     std::signal(SIGPIPE, SIG_IGN);
@@ -18,12 +31,14 @@ int main(int argc, char** argv) {
     try {
         Config cfg = parse_args(argc, argv);
         if (cfg.live) {
+            // Live mode: rank 0 captures camera frames, other ranks receive JPEG tiles.
             MPI_Barrier(MPI_COMM_WORLD);
             run_live(cfg, rank, world_size);
             MPI_Barrier(MPI_COMM_WORLD);
             MPI_Finalize();
             return 0;
         }
+        // Offline mode: build all frame/tile tasks before scheduling.
         auto tasks = make_tasks(cfg);
         MPI_Barrier(MPI_COMM_WORLD);
         auto t0 = std::chrono::steady_clock::now();
@@ -35,6 +50,7 @@ int main(int argc, char** argv) {
         double total_ms = std::chrono::duration<double, std::milli>(t1 - t0).count();
 
         if (rank == 0) {
+            // Only rank 0 owns final merge, correctness check, and CSV output.
             fs::create_directories(cfg.output);
             std::vector<Detection> detections;
             std::vector<Metrics> metrics;

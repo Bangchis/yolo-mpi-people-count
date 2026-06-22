@@ -38,36 +38,35 @@ rank 0 doc camera
 - Entrypoint ngan.
 - Goi `MPI_Init`, doc config, chon live/offline, ghi ket qua cuoi.
 
-`src/yolo_mpi/common.hpp`
+`src/yolo_mpi/core/types.hpp`
 
 - Khai bao `Config`, `Task`, `Detection`, `Metrics`, `ImageTask`.
 - Day la cac kieu du lieu can hieu truoc khi doc cac file khac.
 
-`src/yolo_mpi/config_and_tasks.hpp`
+`src/yolo_mpi/core/config.hpp` va `src/yolo_mpi/core/tasks.hpp`
 
 - Parse command-line options.
 - Tao task tu video: moi task la mot tile cua mot frame.
-- Co mock detector va command detector dung cho test nhanh.
 
-`src/yolo_mpi/detector_worker.hpp`
+`src/yolo_mpi/detector/`
 
 - Quan ly tien trinh Python `scripts/runtime/yolo_worker.py`.
 - Moi MPI rank giu worker song de model YOLO chi load mot lan.
 - Chuyen task sang worker va nhan bbox tra ve.
 
-`src/yolo_mpi/mpi_scheduling.hpp`
+`src/yolo_mpi/mpi/`
 
 - Static scheduling: block-cyclic mapping.
 - Dynamic scheduling: rank 0 lam master queue, worker xin viec tiep.
 - Do `comm_ms` quanh `MPI_Send`, `MPI_Recv`, `MPI_Gather/Gatherv`.
 
-`src/yolo_mpi/postprocess_output.hpp`
+`src/yolo_mpi/postprocess/` va `src/yolo_mpi/output/`
 
 - Tile-owner filter.
 - Global NMS/de-dup.
 - Ghi `frame_counts.csv`, `bboxes.csv`, `rank_metrics.csv`, `summary.csv`.
 
-`src/yolo_mpi/live_pipeline.hpp`
+`src/yolo_mpi/live/`
 
 - Live camera pipeline.
 - Rank 0 doc camera, cat tile, gui tile cho worker, nhan ket qua va hien live.
@@ -131,13 +130,13 @@ rank 0 doc camera
 
 Nguoi 1: C++ MPI scheduling
 
-- Doc `mpi_scheduling.hpp`.
+- Doc `src/yolo_mpi/mpi/static_scheduler.hpp` va `src/yolo_mpi/mpi/dynamic_scheduler.hpp`.
 - Giai thich static/dynamic scheduling, communication, load balance.
 - Phu trach bang speedup va granularity.
 
 Nguoi 2: YOLO worker va post-processing
 
-- Doc `detector_worker.hpp`, `postprocess_output.hpp`, `yolo_worker.py`.
+- Doc `src/yolo_mpi/detector/`, `src/yolo_mpi/postprocess/`, `scripts/runtime/yolo_worker.py`.
 - Giai thich bbox remap, tile-owner filter, NMS/de-dup.
 - Phu trach correctness serial vs MPI.
 

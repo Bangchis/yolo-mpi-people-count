@@ -7,9 +7,8 @@ and benchmark layout.
 
 The required parallel algorithm is implemented only in `C++17 + OpenMPI`.
 `src/yolo_mpi_cpp.cpp` is now a short entrypoint that includes smaller files
-under `src/yolo_mpi/` by responsibility: config/tasks, detector worker, MPI
-scheduling, post-processing/output, and live camera. There is no Python MPI
-path.
+under `src/yolo_mpi/` by responsibility: `core`, `detector`, `mpi`,
+`postprocess`, `output`, and `live`. There is no Python MPI path.
 
 By default `YOLO_MASTER_COMPUTE=1`, so rank 0 on the master also runs a local
 YOLO worker on `device=mps`. In dynamic mode the master acts as both coordinator

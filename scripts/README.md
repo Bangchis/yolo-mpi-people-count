@@ -45,7 +45,6 @@ These scripts generate the CSV files and plots needed by the report rubric.
 - `scripts/report/evaluate_count_accuracy.py`: predicted count vs MOT17 ground truth.
 - `scripts/run/find_N.sh`: runtime vs input size.
 - `scripts/run/speedup_sweep.sh`: speedup for P=1,2,4,8,12.
-- `scripts/run/required_experiments.sh`: older compact experiment runner kept for backup.
 
 ## Assets And Dataset: `scripts/assets/`
 
@@ -64,7 +63,7 @@ If you need to explain the project, read in this order:
 1. `docs/03_PARALLEL_ALGORITHM_SHORT.md`
 2. `docs/02_CODE_READING_GUIDE.md`
 3. `src/yolo_mpi_cpp.cpp`
-4. `src/yolo_mpi/mpi_scheduling.hpp`
+4. `src/yolo_mpi/mpi/dynamic_scheduler.hpp`
 5. `scripts/runtime/yolo_worker.py`
 
 Do not delete a script just because it is not in the live demo path. Some
