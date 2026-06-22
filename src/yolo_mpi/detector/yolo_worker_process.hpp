@@ -14,6 +14,7 @@ public:
         }
 
         pid_ = fork();
+
         if (pid_ < 0) {
             throw std::runtime_error(std::string("fork failed: ") + std::strerror(errno));
         }
@@ -39,11 +40,17 @@ public:
                 "--class-id", "0",
                 "--cpu-fallback", cfg.cpu_fallback ? "1" : "0",
             };
+
             std::vector<char*> argv;
             argv.reserve(args.size() + 1);
-            for (auto& arg : args) argv.push_back(arg.data());
+
+            for (auto& arg : args) {
+                argv.push_back(arg.data());
+            }
+
             argv.push_back(nullptr);
             execvp(argv[0], argv.data());
+
             std::cerr << "rank=" << rank_ << " failed to exec YOLO worker: " << std::strerror(errno) << "\n";
             _exit(127);
         }
@@ -52,9 +59,11 @@ public:
         close(from_child[1]);
         input_ = fdopen(to_child[1], "w");
         output_ = fdopen(from_child[0], "r");
+
         if (!input_ || !output_) {
             throw std::runtime_error("fdopen failed for YOLO worker pipes");
         }
+
         setvbuf(input_, nullptr, _IOLBF, 0);
         wait_until_ready();
     }
@@ -69,18 +78,22 @@ public:
             std::fprintf(input_, "QUIT\n");
             std::fflush(input_);
         }
+
         if (output_) {
             std::string line;
             read_line_no_throw(line);
         }
+
         if (input_) {
             std::fclose(input_);
             input_ = nullptr;
         }
+
         if (output_) {
             std::fclose(output_);
             output_ = nullptr;
         }
+
         if (pid_ > 0) {
             int status = 0;
             waitpid(pid_, &status, 0);
@@ -93,6 +106,7 @@ public:
         if (!input_ || !output_) {
             throw std::runtime_error("YOLO worker is not running");
         }
+
         std::fprintf(
             input_,
             "TASK %d %d %d %d %d %d %d\n",
@@ -104,7 +118,9 @@ public:
             task.x2,
             task.y2
         );
+
         std::fflush(input_);
+
         return read_detection_response(task);
     }
 
@@ -113,6 +129,7 @@ public:
         if (!input_ || !output_) {
             throw std::runtime_error("YOLO worker is not running");
         }
+
         std::fprintf(
             input_,
             "IMAGE %d %d %d %d %d %d %d ",
@@ -127,6 +144,7 @@ public:
         std::fwrite(encoded_jpeg.data(), 1, encoded_jpeg.size(), input_);
         std::fprintf(input_, "\n");
         std::fflush(input_);
+
         return read_detection_response(task);
     }
 
@@ -135,17 +153,21 @@ private:
     std::vector<Detection> read_detection_response(const Task& task) {
         std::vector<Detection> detections;
         std::string line;
+
         while (read_line(line)) {
             if (starts_with(line, "ERROR ")) {
                 throw std::runtime_error("YOLO worker error: " + line);
             }
+
             if (starts_with(line, "BEGIN ")) {
                 continue;
             }
+
             if (starts_with(line, "DET ")) {
                 std::istringstream iss(line);
                 std::string tag;
                 double x1 = 0, y1 = 0, x2 = 0, y2 = 0, conf = 0;
+
                 if (iss >> tag >> x1 >> y1 >> x2 >> y2 >> conf) {
                     Detection det;
                     det.frame_id = task.frame_id;
@@ -160,45 +182,61 @@ private:
                     det.cls = 0;
                     detections.push_back(det);
                 }
+
                 continue;
             }
+
             if (starts_with(line, "END ")) {
                 return detections;
             }
         }
+
         throw std::runtime_error("YOLO worker exited before END");
     }
 
     // Block until the Python worker says READY.
     void wait_until_ready() {
         std::string line;
+
         while (read_line(line)) {
             if (starts_with(line, "READY ")) {
                 std::cerr << "rank=" << rank_ << " " << line << "\n";
                 return;
             }
+
             if (starts_with(line, "ERROR ")) {
                 throw std::runtime_error("YOLO worker startup failed: " + line);
             }
+
             std::cerr << "rank=" << rank_ << " YOLO_WORKER: " << line << "\n";
         }
+
         throw std::runtime_error("YOLO worker exited before READY");
     }
 
     // Read one line from worker stdout.
     bool read_line(std::string& line) {
         std::array<char, 4096> buffer{};
+
         if (std::fgets(buffer.data(), static_cast<int>(buffer.size()), output_) == nullptr) {
             return false;
         }
+
         line = buffer.data();
-        while (!line.empty() && (line.back() == '\n' || line.back() == '\r')) line.pop_back();
+
+        while (!line.empty() && (line.back() == '\n' || line.back() == '\r')) {
+            line.pop_back();
+        }
+
         return true;
     }
 
     // Best-effort line read used while destructing the worker.
     bool read_line_no_throw(std::string& line) {
-        if (!output_) return false;
+        if (!output_) {
+            return false;
+        }
+
         return read_line(line);
     }
 

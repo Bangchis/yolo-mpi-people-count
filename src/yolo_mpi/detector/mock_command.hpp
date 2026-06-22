@@ -28,14 +28,17 @@ static std::string command_for_task(std::string command, const Config& cfg, cons
 // Deterministic fake detector used by build/smoke/report tests without loading YOLO.
 static std::vector<Detection> mock_detector(const Task& task, int rank) {
     std::vector<Detection> detections;
+
     int w = std::max(1, task.x2 - task.x1);
     int h = std::max(1, task.y2 - task.y1);
     int count = 1 + ((task.frame_id + task.tile_id) % 3);
+
     for (int i = 0; i < count; ++i) {
         double cx = task.x1 + (0.22 + 0.22 * i + 0.03 * (task.frame_id % 5)) * w;
         double cy = task.y1 + (0.28 + 0.17 * i + 0.02 * (task.tile_id % 4)) * h;
         double bw = std::max(24.0, 0.12 * w);
         double bh = std::max(48.0, 0.24 * h);
+
         Detection det;
         det.frame_id = task.frame_id;
         det.tile_id = task.tile_id;
@@ -48,6 +51,7 @@ static std::vector<Detection> mock_detector(const Task& task, int rank) {
         det.cls = 0;
         detections.push_back(det);
     }
+
     return detections;
 }
 
@@ -56,17 +60,29 @@ static std::vector<Detection> command_detector(const Config& cfg, const Task& ta
     std::vector<Detection> detections;
     std::string command = command_for_task(cfg.detector_command, cfg, task);
     FILE* pipe = popen(command.c_str(), "r");
+
     if (!pipe) {
         throw std::runtime_error("Failed to run detector command");
     }
+
     std::array<char, 512> buffer{};
+
     while (fgets(buffer.data(), static_cast<int>(buffer.size()), pipe) != nullptr) {
         std::string line(buffer.data());
-        if (line.empty() || line[0] == '#') continue;
+
+        if (line.empty() || line[0] == '#') {
+            continue;
+        }
+
         std::replace(line.begin(), line.end(), ',', ' ');
+
         std::istringstream iss(line);
         double x1 = 0, y1 = 0, x2 = 0, y2 = 0, conf = 0;
-        if (!(iss >> x1 >> y1 >> x2 >> y2 >> conf)) continue;
+
+        if (!(iss >> x1 >> y1 >> x2 >> y2 >> conf)) {
+            continue;
+        }
+
         Detection det;
         det.frame_id = task.frame_id;
         det.tile_id = task.tile_id;
@@ -79,10 +95,13 @@ static std::vector<Detection> command_detector(const Config& cfg, const Task& ta
         det.cls = 0;
         detections.push_back(det);
     }
+
     int rc = pclose(pipe);
+
     if (rc != 0) {
         std::cerr << "WARNING detector command returned non-zero: " << rc << "\n";
     }
+
     return detections;
 }
 

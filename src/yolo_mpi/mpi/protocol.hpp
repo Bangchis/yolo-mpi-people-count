@@ -11,8 +11,13 @@ static void send_task(const Task& task, int dest) {
 static Task recv_task(int* source_tag = nullptr) {
     MPI_Status status;
     int raw[7] = {};
+
     MPI_Recv(raw, 7, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-    if (source_tag) *source_tag = status.MPI_TAG;
+
+    if (source_tag) {
+        *source_tag = status.MPI_TAG;
+    }
+
     Task task;
     task.task_id = raw[0];
     task.frame_id = raw[1];
@@ -27,19 +32,32 @@ static Task recv_task(int* source_tag = nullptr) {
 // Send arbitrary text payload through MPI using a length prefix.
 static void send_string(const std::string& payload, int dest, int tag) {
     int n = static_cast<int>(payload.size());
+
     MPI_Send(&n, 1, MPI_INT, dest, tag, MPI_COMM_WORLD);
-    if (n > 0) MPI_Send(payload.data(), n, MPI_CHAR, dest, tag, MPI_COMM_WORLD);
+
+    if (n > 0) {
+        MPI_Send(payload.data(), n, MPI_CHAR, dest, tag, MPI_COMM_WORLD);
+    }
 }
 
 // Receive a length-prefixed text payload and optionally expose MPI status.
 static std::string recv_string(int source, int tag, MPI_Status* status_out = nullptr) {
     MPI_Status status;
     int n = 0;
+
     MPI_Recv(&n, 1, MPI_INT, source, tag, MPI_COMM_WORLD, &status);
+
     std::string payload;
     payload.resize(n);
-    if (n > 0) MPI_Recv(payload.data(), n, MPI_CHAR, status.MPI_SOURCE, tag, MPI_COMM_WORLD, &status);
-    if (status_out) *status_out = status;
+
+    if (n > 0) {
+        MPI_Recv(payload.data(), n, MPI_CHAR, status.MPI_SOURCE, tag, MPI_COMM_WORLD, &status);
+    }
+
+    if (status_out) {
+        *status_out = status;
+    }
+
     return payload;
 }
 
@@ -48,13 +66,19 @@ static bool read_pipe_line(FILE* stream, std::string& line) {
     char* buffer = nullptr;
     size_t cap = 0;
     ssize_t n = getline(&buffer, &cap, stream);
+
     if (n < 0) {
         std::free(buffer);
         return false;
     }
+
     line.assign(buffer, static_cast<size_t>(n));
     std::free(buffer);
-    while (!line.empty() && (line.back() == '\n' || line.back() == '\r')) line.pop_back();
+
+    while (!line.empty() && (line.back() == '\n' || line.back() == '\r')) {
+        line.pop_back();
+    }
+
     return true;
 }
 
@@ -75,17 +99,24 @@ public:
             dup2(from_child[1], STDOUT_FILENO);
             close(from_child[0]);
             close(from_child[1]);
+
             std::vector<std::string> mutable_args = args;
             std::vector<char*> argv;
             argv.reserve(mutable_args.size() + 1);
-            for (auto& arg : mutable_args) argv.push_back(arg.data());
+
+            for (auto& arg : mutable_args) {
+                argv.push_back(arg.data());
+            }
+
             argv.push_back(nullptr);
             execvp(argv[0], argv.data());
             std::cerr << "failed to exec " << argv[0] << ": " << std::strerror(errno) << "\n";
             _exit(127);
         }
+
         close(from_child[1]);
         output_ = fdopen(from_child[0], "r");
+
         if (!output_) {
             throw std::runtime_error("fdopen failed for output pipe");
         }
@@ -109,7 +140,10 @@ public:
 
     // Read one protocol line from the helper process.
     bool read_line(std::string& line) {
-        if (!output_) return false;
+        if (!output_) {
+            return false;
+        }
+
         return read_pipe_line(output_, line);
     }
 
@@ -135,20 +169,28 @@ public:
             dup2(to_child[0], STDIN_FILENO);
             close(to_child[0]);
             close(to_child[1]);
+
             std::vector<std::string> mutable_args = args;
             std::vector<char*> argv;
             argv.reserve(mutable_args.size() + 1);
-            for (auto& arg : mutable_args) argv.push_back(arg.data());
+
+            for (auto& arg : mutable_args) {
+                argv.push_back(arg.data());
+            }
+
             argv.push_back(nullptr);
             execvp(argv[0], argv.data());
             std::cerr << "failed to exec " << argv[0] << ": " << std::strerror(errno) << "\n";
             _exit(127);
         }
+
         close(to_child[0]);
         input_ = fdopen(to_child[1], "w");
+
         if (!input_) {
             throw std::runtime_error("fdopen failed for input pipe");
         }
+
         setvbuf(input_, nullptr, _IOLBF, 0);
     }
 
@@ -171,7 +213,10 @@ public:
 
     // Send one line to the helper process over stdin.
     void write_line(const std::string& line) {
-        if (!input_) return;
+        if (!input_) {
+            return;
+        }
+
         std::fwrite(line.data(), 1, line.size(), input_);
         std::fwrite("\n", 1, 1, input_);
         std::fflush(input_);

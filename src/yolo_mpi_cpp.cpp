@@ -67,7 +67,16 @@ int main(int argc, char** argv) {
             write_frame_counts(fs::path(cfg.output) / "frame_counts.csv", cfg, by_frame);
             write_bboxes(fs::path(cfg.output) / "bboxes.csv", by_frame);
             write_rank_metrics(fs::path(cfg.output) / "rank_metrics.csv", metrics);
-            write_summary(fs::path(cfg.output) / "summary.csv", cfg, world_size, static_cast<int>(tasks.size()), total_ms, metrics, by_frame, correctness);
+            write_summary(
+                fs::path(cfg.output) / "summary.csv",
+                cfg,
+                world_size,
+                static_cast<int>(tasks.size()),
+                total_ms,
+                metrics,
+                by_frame,
+                correctness
+            );
             std::cout << "YOLO_MPI_CPP_RUN_DONE=YES\n";
             std::cout << "RUN_DIR=" << cfg.output << "\n";
             std::cout << "SUMMARY_CSV=" << (fs::path(cfg.output) / "summary.csv").string() << "\n";

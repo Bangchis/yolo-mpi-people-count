@@ -39,7 +39,11 @@ static double iou(const Detection& a, const Detection& b) {
 // Measure how much the smaller box is covered by the other box.
 static double intersection_over_smaller(const Detection& a, const Detection& b) {
     double smaller = std::min(box_area(a), box_area(b));
-    if (smaller <= 0) return 0.0;
+
+    if (smaller <= 0) {
+        return 0.0;
+    }
+
     return intersection_area(a, b) / smaller;
 }
 
@@ -47,11 +51,13 @@ static double intersection_over_smaller(const Detection& a, const Detection& b) 
 static double axis_overlap_ratio(double a1, double a2, double b1, double b2) {
     double overlap = std::max(0.0, std::min(a2, b2) - std::max(a1, b1));
     double smaller = std::min(std::max(0.0, a2 - a1), std::max(0.0, b2 - b1));
+
     return smaller > 0 ? overlap / smaller : 0.0;
 }
 
 // Measure normalized gap between two 1D intervals.
 static double axis_gap_ratio(double a1, double a2, double b1, double b2, double scale) {
     double gap = std::max(0.0, std::max(a1, b1) - std::min(a2, b2));
+
     return scale > 0 ? gap / scale : 0.0;
 }
