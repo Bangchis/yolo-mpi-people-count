@@ -36,6 +36,29 @@ def md_table(headers: list[str], rows: list[list[str]]) -> str:
     return "\n".join(out)
 
 
+def existing_figures(report_dir: Path) -> list[tuple[str, Path]]:
+    """Return the important report figures that currently exist."""
+    candidates = [
+        ("Count error by frame", report_dir / "accuracy" / "count_error_plot.png"),
+        ("Find N runtime", report_dir / "find_N" / "figures" / "find_N_runtime.png"),
+        ("Granularity overview", report_dir / "granularity" / "granularity_overview.png"),
+        ("Static vs dynamic scheduler", report_dir / "scheduler" / "figures" / "scheduler_comparison.png"),
+        ("Speedup", report_dir / "speedup" / "figures" / "speedup.png"),
+        ("Speedup 2N", report_dir / "speedup_2N" / "figures" / "speedup.png"),
+        ("Heterogeneous weighted mapping", report_dir / "heterogeneous" / "figures" / "heterogeneous_balance.png"),
+    ]
+
+    granularity_dir = report_dir / "granularity"
+    if granularity_dir.exists():
+        for path in sorted(granularity_dir.glob("grid_*/rank_metrics_stacked.png")):
+            candidates.append((f"Granularity {path.parent.name}", path))
+
+    for path in sorted(report_dir.glob("find_N_long*/figures/find_N_runtime.png")):
+        candidates.append((f"Long Find N {path.parent.parent.name}", path))
+
+    return [(label, path) for label, path in candidates if path.exists()]
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Create Markdown tables from a report result directory.")
     parser.add_argument("--report-dir", required=True)
@@ -115,6 +138,26 @@ def main() -> int:
         )
         lines.append("")
 
+    for long_find_n in sorted(report_dir.glob("find_N_long*/raw/find_N.csv")):
+        long_rows = read_csv(long_find_n)
+        if not long_rows:
+            continue
+        lines.append(f"## Long Find N: {long_find_n.parent.parent.name}")
+        lines.append("")
+        lines.append(
+            md_table(
+                ["Frames", "With Comm (s)", "Without Comm (s)", "P", "Grid"],
+                [[
+                    row.get("frames", ""),
+                    fmt_float(float(row.get("total_ms_with_comm", "0")) / 1000.0),
+                    fmt_float(float(row.get("total_ms_without_comm", "0")) / 1000.0),
+                    row.get("world_size", ""),
+                    row.get("tile_grid", ""),
+                ] for row in long_rows],
+            )
+        )
+        lines.append("")
+
     granularity_rows = read_csv(report_dir / "granularity" / "granularity_overview.csv")
     if granularity_rows:
         lines.append("## Granularity And Load Balance")
@@ -137,6 +180,28 @@ def main() -> int:
         )
         lines.append("")
 
+    scheduler_rows = read_csv(report_dir / "scheduler" / "scheduler_comparison.csv")
+    if scheduler_rows:
+        lines.append("## Scheduler Comparison")
+        lines.append("")
+        lines.append(
+            md_table(
+                ["Schedule", "P", "Frames", "Grid", "With Comm (s)", "Without Comm (s)", "Load Imbalance", "Idle Gap", "Pass"],
+                [[
+                    row.get("schedule", ""),
+                    row.get("world_size", ""),
+                    row.get("frames", ""),
+                    row.get("tile_grid", ""),
+                    fmt_float(float(row.get("total_ms_with_comm", "0")) / 1000.0),
+                    fmt_float(float(row.get("total_ms_without_comm", "0")) / 1000.0),
+                    fmt_float(row.get("load_imbalance", "")),
+                    fmt_float(row.get("idle_gap_ratio", "")),
+                    row.get("load_balance_pass", ""),
+                ] for row in scheduler_rows],
+            )
+        )
+        lines.append("")
+
     speedup_rows = read_csv(report_dir / "speedup" / "raw" / "speedup.csv")
     if speedup_rows:
         lines.append("## Speedup")
@@ -151,6 +216,57 @@ def main() -> int:
                     fmt_float(row.get("speedup_with_comm", "")),
                     fmt_float(row.get("efficiency_with_comm", "")),
                 ] for row in speedup_rows],
+            )
+        )
+        lines.append("")
+
+    speedup_2n_rows = read_csv(report_dir / "speedup_2N" / "raw" / "speedup.csv")
+    if speedup_2n_rows:
+        lines.append("## Speedup 2N")
+        lines.append("")
+        lines.append(
+            md_table(
+                ["P", "With Comm (s)", "Without Comm (s)", "Speedup", "Efficiency"],
+                [[
+                    row.get("world_size", ""),
+                    fmt_float(float(row.get("total_ms_with_comm", "0")) / 1000.0),
+                    fmt_float(float(row.get("total_ms_without_comm", "0")) / 1000.0),
+                    fmt_float(row.get("speedup_with_comm", "")),
+                    fmt_float(row.get("efficiency_with_comm", "")),
+                ] for row in speedup_2n_rows],
+            )
+        )
+        lines.append("")
+
+    heterogeneous_rows = read_csv(report_dir / "heterogeneous" / "heterogeneous_overview.csv")
+    if heterogeneous_rows:
+        lines.append("## Heterogeneous Weighted Mapping")
+        lines.append("")
+        lines.append(
+            md_table(
+                ["Case", "P", "Frames", "Grid", "With Comm (s)", "Without Comm (s)", "Load Imbalance", "Host Task Distribution"],
+                [[
+                    row.get("label", ""),
+                    row.get("world_size", ""),
+                    row.get("frames", ""),
+                    row.get("tile_grid", ""),
+                    fmt_float(float(row.get("total_ms_with_comm", "0")) / 1000.0),
+                    fmt_float(float(row.get("total_ms_without_comm", "0")) / 1000.0),
+                    fmt_float(row.get("load_imbalance", "")),
+                    row.get("host_task_distribution", "").replace("|", "/"),
+                ] for row in heterogeneous_rows],
+            )
+        )
+        lines.append("")
+
+    figures = existing_figures(report_dir)
+    if figures:
+        lines.append("## Figures To Include")
+        lines.append("")
+        lines.append(
+            md_table(
+                ["Purpose", "File"],
+                [[label, str(path)] for label, path in figures],
             )
         )
         lines.append("")

@@ -4,7 +4,7 @@
 
 **Môn học:** Parallel Programming and Computing  
 **Nhóm:** `<ID nhóm>`  
-**Sinh viên:** `<Danh sách thành viên>`  
+**Sinh viên:** `Phạm Chí Bằng - 2035477; Nguyễn Thanh Lâm - 20235519; Nguyễn Phú An - 20235466; Lưu Hiếu An - 202400093`
 **Ngày nộp:** 24/06/2026  
 
 ---
@@ -179,8 +179,14 @@ Load balancing có hai mức:
 
 - **Dynamic scheduling:** rank nào xử lý nhanh hơn sẽ nhận nhiều task hơn.
 - **Granularity tuning:** thay đổi `tile_grid` và `chunk_size` để điều chỉnh độ mịn.
+- **Weighted process mapping:** với cụm không đồng nhất, máy mạnh hơn có thể nhận nhiều MPI rank hơn.
 
 Nếu task quá thô, một rank có thể giữ task nặng quá lâu, các rank khác rảnh. Nếu task quá mịn, số lượng task tăng mạnh làm tăng chi phí giao tiếp và hậu xử lý. Do đó nhóm đo nhiều cấu hình tile grid để chọn mức phù hợp.
+
+Trong phần thực nghiệm, nhóm tách rõ hai ý:
+
+1. **Dynamic scheduling experiment:** mọi rank nhận task động từ hàng đợi của rank 0. Đây là thuật toán chính.
+2. **Weighted mapping experiment:** cùng là dynamic scheduling, nhưng số rank trên từng máy được gán theo sức mạnh máy. Thí nghiệm này dùng `P=24` để so sánh mapping đều `8/8/8` và mapping có trọng số `8/10/6`.
 
 ---
 
@@ -381,10 +387,12 @@ Serial vs MPI kiểm tra tính đúng của song song hóa. YOLO vs ground truth
 |---|---|---|
 | Correctness serial vs MPI | So sánh `frame_counts.csv` | `correctness/correctness_compare.csv` |
 | Accuracy vs ground truth | MAE, RMSE, exact match | `accuracy/accuracy.csv` |
-| Tìm N 2-3 phút | Chạy nhiều frame count | `find_N/raw/find_N.csv` |
-| Granularity/load balance | Chạy nhiều tile grid | `granularity/granularity_overview.csv` |
+| Tìm N 2-3 phút | Chạy nhiều frame count, mini và full sequence | `find_N/raw/find_N.csv`, `find_N_long_fullseq_5x4/raw/find_N.csv` |
+| Granularity/load balance | Chạy vài tile grid đại diện | `granularity/granularity_overview.csv`, `granularity_overview.png` |
+| Static vs dynamic scheduling | So sánh hai scheduler trên cùng input | `scheduler/scheduler_comparison.csv`, `scheduler_comparison.png` |
 | Stacked rank time | compute + comm + idle | `rank_metrics_stacked.png` |
 | Speedup | P = 1,2,4,8,12 | `speedup/raw/speedup.csv`, `speedup.png` |
+| Heterogeneous weighted mapping | P=24, uniform vs weighted | `heterogeneous_balance.png`, `host_metrics.csv` |
 
 ### 6.4. Lệnh chạy full report
 
@@ -408,6 +416,12 @@ YOLO_FIND_FRAME_LIST="30 60 100 150 220 300" \
 YOLO_GRANULARITY_GRIDS="1x1 2x2 4x3 5x4" \
 YOLO_P_LIST="1 2 4 8 12" \
 YOLO_SPEEDUP_FRAMES=300 \
+YOLO_SPEEDUP_MAP_BY=node:OVERSUBSCRIBE \
+YOLO_RUN_SCHEDULER_COMPARE=1 \
+YOLO_RUN_HETEROGENEOUS=1 \
+YOLO_HET_FRAMES=150 \
+YOLO_HET_TILE_GRID=5x4 \
+YOLO_HET_NP=24 \
 bash scripts/run/report_mot17_mini.sh
 ```
 
@@ -424,17 +438,21 @@ Script này tạo `summary_tables.md` để copy bảng vào báo cáo.
 
 ## 7. Kết Quả Thực Nghiệm
 
-> Ghi chú: các bảng dưới đây cần thay bằng kết quả full run cuối cùng trước khi nộp. Bản quick run đã được chạy để xác nhận pipeline hoạt động, nhưng không dùng làm kết quả chính vì số frame quá ít.
+Kết quả dưới đây lấy từ lần chạy:
+
+```text
+results/report_mot17_mini_final_20260623-154318/
+```
+
+Các file CSV và hình trong thư mục này được sinh tự động bởi `scripts/run/report_mot17_mini.sh`, sau đó được tổng hợp bằng `scripts/report/summarize_report_dir.py`.
 
 ### 7.1. Kiểm tra correctness: serial vs MPI
 
 Mục tiêu là chứng minh song song hóa không làm sai kết quả so với cách chạy tuần tự cùng cấu hình.
 
-| Thí nghiệm | Kết quả mong muốn |
-|---|---|
-| Serial vs MPI | `correctness_pass = YES` |
-| Sai số max | `0` |
-| Sai số trung bình | `0` |
+| Pass | Frames | Mismatched | Max Error | Mean Error |
+|---|---:|---:|---:|---:|
+| YES | 30 | 0 | 0 | 0.000 |
 
 Kết quả full run lấy từ:
 
@@ -442,6 +460,8 @@ Kết quả full run lấy từ:
 correctness/correctness_compare.csv
 correctness/correctness_per_frame.csv
 ```
+
+Nhận xét: với cùng model, threshold, tile grid và hậu xử lý, bản MPI cho kết quả khớp hoàn toàn với bản serial trên 30 frame kiểm tra. Điều này chứng minh phần chia task/gom kết quả MPI không làm thay đổi kết quả thuật toán.
 
 ### 7.2. Đánh giá YOLO count so với ground truth
 
@@ -461,7 +481,17 @@ accuracy/per_frame_accuracy.csv
 accuracy/count_error_plot.png
 ```
 
-Cần giải thích rõ: nếu YOLO pretrained đếm lệch so với ground truth, đó là sai số mô hình nhận diện, không phải sai số song song hóa. Song song hóa đúng được kiểm chứng bằng serial-vs-MPI.
+| Frames | MAE | RMSE | MAPE | Exact | GT Avg | Pred Avg |
+|---:|---:|---:|---:|---:|---:|---:|
+| 300 | 7.983 | 8.269 | 0.490 | 0.000 | 16.207 | 8.223 |
+
+Hình cần đưa vào báo cáo:
+
+```text
+results/report_mot17_mini_final_20260623-154318/accuracy/count_error_plot.png
+```
+
+Nhận xét: YOLO pretrained bị thiếu người trên MOT17 vì scene đông người, nhiều người bị che khuất và kích thước người nhỏ. Đây là sai số của mô hình nhận diện, không phải sai số của phần song song hóa. Phần song song hóa đã được kiểm chứng riêng bằng serial-vs-MPI ở mục 7.1.
 
 ### 7.3. Xác định kích thước dữ liệu N
 
@@ -474,18 +504,36 @@ find_N/raw/find_N.csv
 find_N/figures/find_N_runtime.png
 ```
 
-Bảng cần điền sau full run:
-
 | N frames | Time with comm (s) | Time without comm (s) | Nhận xét |
 |---:|---:|---:|---|
-| 30 | `<fill>` | `<fill>` | Nhỏ |
-| 60 | `<fill>` | `<fill>` | Nhỏ |
-| 100 | `<fill>` | `<fill>` | Trung bình |
-| 150 | `<fill>` | `<fill>` | Ứng viên |
-| 220 | `<fill>` | `<fill>` | Ứng viên |
-| 300 | `<fill>` | `<fill>` | Ứng viên |
+| 30 | 9.165 | 2.999 | Nhỏ |
+| 60 | 12.570 | 6.801 | Nhỏ |
+| 100 | 17.776 | 11.596 | Trung bình |
+| 150 | 23.585 | 17.103 | Chưa đủ 2-3 phút |
 
-Sau khi tìm được N, dùng `2N` cho speedup theo yêu cầu.
+Hình cần đưa vào báo cáo:
+
+```text
+results/report_mot17_mini_final_20260623-154318/find_N/figures/find_N_runtime.png
+```
+
+Nhận xét: MOT17-mini 300 frame quá ngắn nên chưa đủ để đạt runtime 2-3 phút. Vì vậy nhóm dùng thêm sequence dài hơn trong `data/mot17-fullseq/` để tìm N cuối cùng.
+
+Kết quả dài hơn với `MOT17-05-SDP-837`, `P=12`, `tile_grid=5x4`:
+
+| N frames | Time with comm (s) | Time without comm (s) | P | Grid | Nhận xét |
+|---:|---:|---:|---:|---|---|
+| 300 | 54.764 | 49.156 | 12 | 5x4 | Dưới 2 phút |
+| 600 | 123.667 | 114.352 | 12 | 5x4 | Chọn làm N |
+| 837 | 146.316 | 139.136 | 12 | 5x4 | Trong vùng 2-3 phút |
+
+Hình dài cần đưa vào báo cáo:
+
+```text
+results/report_mot17_mini_final_20260623-154318/find_N_long_fullseq_5x4/figures/find_N_runtime.png
+```
+
+Nhóm chọn `N = 600 frame` vì runtime có communication là khoảng 123.7 giây, nằm trong vùng 2-3 phút theo yêu cầu. Với speedup, nhóm tạo video benchmark `2N = 1200 frame` bằng cách nối hai đoạn MOT17 cùng kích thước `960x540`.
 
 ### 7.4. Granularity và load balance
 
@@ -507,13 +555,57 @@ Kết quả lấy từ:
 ```text
 granularity/granularity_overview.csv
 granularity/grid_<grid>/rank_metrics_stacked.png
+granularity/granularity_overview.png
 ```
 
-Nếu `idle_gap_ratio > 0.25`, hệ thống chưa cân bằng tải theo tiêu chí của thầy. Khi đó cần giảm/tăng độ mịn và chạy lại.
+| Grid | Ranks | Tasks | Compute Max (s) | Compute Avg (s) | Comm Total (s) | Idle Total (s) | Idle Gap | Pass |
+|---|---:|---:|---:|---:|---:|---:|---:|---|
+| grid_1x1 | 12 | 150 | 1.367 | 0.483 | 47.417 | 10.615 | 0.838 | NO |
+| grid_2x2 | 12 | 600 | 5.447 | 2.205 | 72.434 | 38.902 | 0.802 | NO |
+| grid_4x3 | 12 | 1800 | 16.329 | 6.375 | 154.944 | 119.449 | 0.809 | NO |
+| grid_5x4 | 12 | 3000 | 25.263 | 9.133 | 230.059 | 193.569 | 0.824 | NO |
 
-### 7.5. Speedup
+Hình cần đưa vào báo cáo:
 
-Chạy với `2N`, thay đổi số process:
+```text
+results/report_mot17_mini_final_20260623-154318/granularity/granularity_overview.png
+results/report_mot17_mini_final_20260623-154318/granularity/grid_1x1/rank_metrics_stacked.png
+results/report_mot17_mini_final_20260623-154318/granularity/grid_2x2/rank_metrics_stacked.png
+results/report_mot17_mini_final_20260623-154318/granularity/grid_4x3/rank_metrics_stacked.png
+results/report_mot17_mini_final_20260623-154318/granularity/grid_5x4/rank_metrics_stacked.png
+```
+
+Nhận xét: theo tiêu chí `idle_gap_ratio <= 0.25`, các cấu hình trên chưa đạt cân bằng tải hoàn hảo. Nguyên nhân chính là cụm không đồng nhất và chi phí truyền thông/khởi tạo worker lớn so với thời gian xử lý mini dataset. Tuy vậy dynamic scheduling vẫn giúp rank nhanh nhận thêm task, thể hiện rõ hơn trong thí nghiệm weighted ở mục 7.7.
+
+### 7.5. So sánh static và dynamic scheduling
+
+Thí nghiệm này giữ nguyên `P=12`, `N=150`, `tile_grid=4x3`, chỉ thay scheduler:
+
+```text
+static  : chia task theo block-cyclic ngay từ đầu
+dynamic : rank 0 giữ queue, rank rảnh nhận task mới
+```
+
+Kết quả:
+
+| Schedule | P | Frames | Grid | With Comm (s) | Without Comm (s) | Load Imbalance | Idle Gap | Pass |
+|---|---:|---:|---|---:|---:|---:|---:|---|
+| static | 12 | 150 | 4x3 | 18.437 | 13.823 | 1.807 | 0.754 | NO |
+| dynamic | 12 | 150 | 4x3 | 23.262 | 17.699 | 2.815 | 0.826 | NO |
+
+Hình cần đưa vào báo cáo:
+
+```text
+results/report_mot17_mini_final_20260623-154318/scheduler/figures/scheduler_comparison.png
+results/report_mot17_mini_final_20260623-154318/scheduler/static/rank_metrics_stacked.png
+results/report_mot17_mini_final_20260623-154318/scheduler/dynamic/rank_metrics_stacked.png
+```
+
+Nhận xét: trên mini dataset, dynamic scheduling chậm hơn static vì chi phí điều phối task và nhận/gửi kết quả lớn hơn lợi ích cân bằng tải. Đây là kết quả quan trọng: dynamic scheduling không phải lúc nào cũng nhanh hơn; nó phù hợp hơn khi task có độ khó lệch nhiều hoặc input đủ lớn. Nhóm vẫn chọn dynamic làm thuật toán chính vì nó tổng quát hơn cho video thực tế và cụm không đồng nhất, đồng thời có thêm weighted mapping ở mục 7.7 để giảm tác động máy mạnh/yếu.
+
+### 7.6. Speedup với input 2N
+
+Chạy với `2N = 1200 frame`, `tile_grid=5x4`, thay đổi số process:
 
 ```text
 P = 1, 2, 4, 8, 12
@@ -529,18 +621,97 @@ Efficiency(P) = S(P) / P
 Kết quả lấy từ:
 
 ```text
-speedup/raw/speedup.csv
-speedup/figures/speedup.png
+speedup_2N/raw/speedup.csv
+speedup_2N/figures/speedup.png
 ```
 
-Khi P tăng, speedup có thể không tuyến tính vì:
+| P | With Comm (s) | Without Comm (s) | Speedup | Efficiency |
+|---:|---:|---:|---:|---:|
+| 1 | 345.677 | 342.467 | 1.000 | 1.000 |
+| 2 | 276.155 | 272.546 | 1.252 | 0.626 |
+| 4 | 244.747 | 240.905 | 1.412 | 0.353 |
+| 8 | 200.770 | 194.282 | 1.722 | 0.215 |
+| 12 | 178.306 | 170.255 | 1.939 | 0.162 |
+
+Hình cần đưa vào báo cáo:
+
+```text
+results/report_mot17_mini_final_20260623-154318/speedup_2N/figures/speedup.png
+```
+
+Khi P tăng, speedup tăng nhưng không tuyến tính. Ở `P=12`, speedup có communication đạt `1.939x`; speedup không tính communication đạt khoảng `2.011x`. Nguyên nhân không tuyến tính:
 
 - YOLO worker có overhead khởi tạo.
 - Dữ liệu task và bbox phải truyền qua LAN.
 - Một số rank có thể chờ task hoặc chờ kết quả.
 - Máy trong cụm không đồng nhất.
+- Nhiều tiến trình CPU cùng chạy YOLO có thể cạnh tranh tài nguyên trên từng máy.
 
-### 7.6. Demo live camera
+### 7.7. Thí nghiệm dynamic + weighted mapping trên cụm không đồng nhất
+
+Ngoài các thí nghiệm bắt buộc với `P=1,2,4,8,12`, nhóm chạy thêm thí nghiệm nâng cao với `P=24` để phân tích cụm không đồng nhất.
+
+Hai cấu hình:
+
+```text
+uniform_24  : master/node1/node2 = 8/8/8 ranks
+weighted_24 : master/node1/node2 = 8/10/6 ranks
+```
+
+Cả hai cấu hình đều dùng **dynamic scheduling**, nghĩa là mapping có trọng số chỉ quyết định số rank ban đầu trên từng máy; còn trong quá trình chạy, rank nào xong sớm sẽ nhận task mới từ master. Cách này phù hợp với cụm thực tế vì node1 mạnh hơn nên có thể chạy nhiều rank hơn, node2 yếu hơn nên nhận ít rank hơn.
+
+Các hình và bảng cần đưa vào report:
+
+```text
+heterogeneous/figures/heterogeneous_balance.png
+heterogeneous/uniform_24/rank_metrics_stacked.png
+heterogeneous/weighted_24/rank_metrics_stacked.png
+heterogeneous/uniform_24/host_metrics.csv
+heterogeneous/weighted_24/host_metrics.csv
+```
+
+| Case | P | Frames | Grid | With Comm (s) | Without Comm (s) | Load Imbalance |
+|---|---:|---:|---|---:|---:|---:|
+| uniform_24 | 24 | 150 | 5x4 | 43.659 | 32.268 | 2.607 |
+| weighted_24 | 24 | 150 | 5x4 | 47.238 | 30.864 | 2.379 |
+
+Phân bố task theo host:
+
+| Case | Host | Ranks | Tasks | Task Share |
+|---|---|---:|---:|---:|
+| uniform_24 | node2 | 8 | 695 | 0.232 |
+| uniform_24 | node1 | 8 | 1083 | 0.361 |
+| uniform_24 | master | 8 | 1222 | 0.407 |
+| weighted_24 | node2 | 6 | 417 | 0.139 |
+| weighted_24 | node1 | 10 | 1335 | 0.445 |
+| weighted_24 | master | 8 | 1248 | 0.416 |
+
+Nhận xét: weighted mapping làm `total_ms_without_comm` giảm từ 32.268s xuống 30.864s và giảm `load_imbalance` từ 2.607 xuống 2.379, tức là phần compute thuần được phân bổ hợp lý hơn cho cụm không đồng nhất. Tuy nhiên `total_ms_with_comm` tăng từ 43.659s lên 47.238s, cho thấy nhiều rank và nhiều task mịn hơn có thể làm chi phí giao tiếp/điều phối lớn hơn lợi ích compute. Đây là trade-off quan trọng cần trình bày khi bảo vệ.
+
+Ý nghĩa hình:
+
+- Biểu đồ host task share cho thấy mỗi máy xử lý bao nhiêu phần trăm task.
+- Biểu đồ runtime cho thấy weighted mapping có giảm thời gian chạy hay không.
+- Stacked bar theo rank cho thấy compute/communication/idle của từng rank.
+
+### 7.8. Các hình minh họa cần có trong báo cáo
+
+Để báo cáo không chỉ có bảng số liệu, nhóm đưa vào các hình sau:
+
+| Hình | File |
+|---|---|
+| Sai số đếm theo frame | `accuracy/count_error_plot.png` |
+| Runtime theo N | `find_N/figures/find_N_runtime.png` |
+| Runtime theo N dài | `find_N_long_fullseq_5x4/figures/find_N_runtime.png` |
+| Granularity overview | `granularity/granularity_overview.png` |
+| Granularity/load balance | `granularity/grid_*/rank_metrics_stacked.png` |
+| Static vs dynamic scheduler | `scheduler/figures/scheduler_comparison.png` |
+| Speedup 2N | `speedup_2N/figures/speedup.png` |
+| Weighted vs uniform mapping | `heterogeneous/figures/heterogeneous_balance.png` |
+
+Các hình này tương ứng trực tiếp với các yêu cầu của thầy: đúng/sai, chọn N, granularity, load balance và speedup.
+
+### 7.9. Demo live camera
 
 Demo live không phải benchmark chính nhưng giúp bài trình bày hấp dẫn. Master lấy camera, hiển thị kết quả realtime. Để giảm detect thừa trong live, nhóm dùng full-frame anchor:
 

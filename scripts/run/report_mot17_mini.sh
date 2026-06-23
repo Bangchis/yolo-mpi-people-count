@@ -32,18 +32,22 @@ if [[ "${YOLO_REPORT_QUICK:-0}" == "1" ]]; then
   correctness_frames="${YOLO_CORRECTNESS_FRAMES:-5}"
   accuracy_frames="${YOLO_ACCURACY_FRAMES:-10}"
   granularity_frames="${YOLO_GRANULARITY_FRAMES:-10}"
+  scheduler_frames="${YOLO_SCHED_COMPARE_FRAMES:-10}"
   export YOLO_FIND_FRAME_LIST="${YOLO_FIND_FRAME_LIST:-5 10}"
   export YOLO_GRANULARITY_GRIDS="${YOLO_GRANULARITY_GRIDS:-1x1 2x2}"
   export YOLO_P_LIST="${YOLO_P_LIST:-1 2}"
   export YOLO_SPEEDUP_FRAMES="${YOLO_SPEEDUP_FRAMES:-10}"
+  export YOLO_RUN_SCHEDULER_COMPARE="${YOLO_RUN_SCHEDULER_COMPARE:-0}"
 else
   correctness_frames="${YOLO_CORRECTNESS_FRAMES:-30}"
   accuracy_frames="${YOLO_ACCURACY_FRAMES:-300}"
   granularity_frames="${YOLO_GRANULARITY_FRAMES:-150}"
+  scheduler_frames="${YOLO_SCHED_COMPARE_FRAMES:-150}"
   export YOLO_FIND_FRAME_LIST="${YOLO_FIND_FRAME_LIST:-30 60 100 150}"
   export YOLO_GRANULARITY_GRIDS="${YOLO_GRANULARITY_GRIDS:-1x1 2x2 4x3}"
   export YOLO_P_LIST="${YOLO_P_LIST:-1 2 4 8 12}"
   export YOLO_SPEEDUP_FRAMES="${YOLO_SPEEDUP_FRAMES:-300}"
+  export YOLO_RUN_SCHEDULER_COMPARE="${YOLO_RUN_SCHEDULER_COMPARE:-1}"
 fi
 
 report_np="${YOLO_REPORT_MPI_NP:-${YOLO_NP:-12}}"
@@ -69,6 +73,12 @@ if [[ ! -f "$YOLO_GT_COUNTS" ]]; then
 fi
 
 mkdir -p "$report_dir"/{dataset,correctness,accuracy,find_N,granularity,speedup}
+if [[ "${YOLO_RUN_SCHEDULER_COMPARE:-0}" == "1" ]]; then
+  mkdir -p "$report_dir/scheduler"
+fi
+if [[ "${YOLO_RUN_HETEROGENEOUS:-0}" == "1" ]]; then
+  mkdir -p "$report_dir/heterogeneous"
+fi
 
 echo "YOLO_REPORT_DIR=$report_dir"
 echo "PHASE 0/6: build and runtime preparation"
@@ -99,8 +109,12 @@ report_hostfile=$report_hostfile
 use_hostfile=$report_use_hostfile
 find_frame_list=$YOLO_FIND_FRAME_LIST
 granularity_grids=$YOLO_GRANULARITY_GRIDS
+scheduler_compare=${YOLO_RUN_SCHEDULER_COMPARE:-0}
+scheduler_frames=$scheduler_frames
 speedup_p_list=$YOLO_P_LIST
 speedup_frames=$YOLO_SPEEDUP_FRAMES
+speedup_map_by=${YOLO_SPEEDUP_MAP_BY:-${MPI_MAP_BY:-}}
+run_heterogeneous=${YOLO_RUN_HETEROGENEOUS:-0}
 EOF
 
 run_perf() {
@@ -188,16 +202,68 @@ for grid in $YOLO_GRANULARITY_GRIDS; do
   fi
 done
 
-echo
-echo "PHASE 5/6: speedup sweep"
-YOLO_RUN_DIR="$report_dir/speedup" \
-YOLO_USE_HOSTFILE="$report_use_hostfile" \
-YOLO_SWEEP_HOSTFILE="$report_hostfile" \
-YOLO_TILE_GRID="$main_tile_grid" \
-bash scripts/run/speedup_sweep.sh
+"$python_bin" scripts/report/plots/plot_granularity_overview.py \
+  --input "$granularity_overview" \
+  --output "$report_dir/granularity/granularity_overview.png"
+
+if [[ "${YOLO_RUN_SCHEDULER_COMPARE:-0}" == "1" ]]; then
+  echo
+  echo "PHASE 4b/6: static vs dynamic scheduling"
+  YOLO_RUN_DIR="$report_dir/scheduler" \
+  YOLO_SCHED_COMPARE_FRAMES="$scheduler_frames" \
+  YOLO_SCHED_COMPARE_NP="$report_np" \
+  YOLO_SCHED_COMPARE_HOSTFILE="$report_hostfile" \
+  YOLO_USE_HOSTFILE="$report_use_hostfile" \
+  YOLO_SCHED_COMPARE_TILE_GRID="$main_tile_grid" \
+  bash scripts/run/scheduler_comparison.sh
+fi
 
 echo
-echo "PHASE 6/6: done"
+echo "PHASE 5/6: speedup sweep"
+speedup_cluster_env="${YOLO_SPEEDUP_CLUSTER_ENV:-}"
+if [[ -z "$speedup_cluster_env" && -n "${YOLO_SPEEDUP_MAP_BY:-}" ]]; then
+  speedup_cluster_env="$report_dir/speedup_cluster.env"
+  if [[ -f "$cluster_env" ]]; then
+    cp "$cluster_env" "$speedup_cluster_env"
+  else
+    : > "$speedup_cluster_env"
+  fi
+
+  # Speedup with small P should spread ranks across machines. The normal
+  # report phases can still use slot mapping, while this temporary env only
+  # affects scripts/run/speedup_sweep.sh.
+  if grep -q '^MPI_MAP_BY=' "$speedup_cluster_env"; then
+    perl -0pi -e "s/^MPI_MAP_BY=.*/MPI_MAP_BY=${YOLO_SPEEDUP_MAP_BY}/m" "$speedup_cluster_env"
+  else
+    printf 'MPI_MAP_BY=%s\n' "$YOLO_SPEEDUP_MAP_BY" >> "$speedup_cluster_env"
+  fi
+fi
+
+speedup_env=()
+if [[ -n "$speedup_cluster_env" ]]; then
+  speedup_env=(YOLO_CLUSTER_ENV="$speedup_cluster_env")
+fi
+
+env "${speedup_env[@]}" \
+  YOLO_RUN_DIR="$report_dir/speedup" \
+  YOLO_USE_HOSTFILE="$report_use_hostfile" \
+  YOLO_SWEEP_HOSTFILE="$report_hostfile" \
+  YOLO_TILE_GRID="$main_tile_grid" \
+  bash scripts/run/speedup_sweep.sh
+
+echo
+if [[ "${YOLO_RUN_HETEROGENEOUS:-0}" == "1" ]]; then
+  echo "PHASE 6/7: heterogeneous weighted mapping"
+  YOLO_RUN_DIR="$report_dir/heterogeneous" \
+  YOLO_HET_FRAMES="${YOLO_HET_FRAMES:-$granularity_frames}" \
+  YOLO_HET_TILE_GRID="${YOLO_HET_TILE_GRID:-5x4}" \
+  YOLO_HET_NP="${YOLO_HET_NP:-24}" \
+  bash scripts/run/heterogeneous_balance.sh
+  echo
+  echo "PHASE 7/7: done"
+else
+  echo "PHASE 6/6: done"
+fi
 echo "YOLO_REPORT_DONE=YES"
 echo "YOLO_REPORT_DIR=$report_dir"
 echo "Correctness status: $correctness_status"

@@ -10,7 +10,9 @@ Collect final report evidence for:
 - YOLO count vs MOT17 ground truth
 - finding input size `N`
 - granularity/load-balance plots
+- static vs dynamic scheduler comparison
 - speedup for `P = 1, 2, 4, 8, 12`
+- uniform vs weighted mapping on heterogeneous 24-rank runs
 
 Benchmark mode is **CPU**, not MPS/GPU, because the course requirement is about MPI processes/CPU cores.
 
@@ -61,6 +63,7 @@ YOLO_P_LIST="1 2" \
 YOLO_SPEEDUP_FRAMES=5 \
 YOLO_REPORT_MPI_NP=3 \
 YOLO_REPORT_HOSTFILE=configs/hosts_macos_live \
+YOLO_SPEEDUP_MAP_BY=node:OVERSUBSCRIBE \
 YOLO_TILE_GRID=2x2 \
 MPI_MAP_BY=node:OVERSUBSCRIBE \
 YOLO_DEVICE=cpu \
@@ -99,6 +102,13 @@ YOLO_FIND_FRAME_LIST="30 60 100 150 220 300" \
 YOLO_GRANULARITY_GRIDS="1x1 2x2 4x3 5x4" \
 YOLO_P_LIST="1 2 4 8 12" \
 YOLO_SPEEDUP_FRAMES=300 \
+YOLO_SPEEDUP_MAP_BY=node:OVERSUBSCRIBE \
+YOLO_RUN_SCHEDULER_COMPARE=1 \
+YOLO_SCHED_COMPARE_FRAMES=150 \
+YOLO_RUN_HETEROGENEOUS=1 \
+YOLO_HET_FRAMES=150 \
+YOLO_HET_TILE_GRID=5x4 \
+YOLO_HET_NP=24 \
 bash scripts/run/report_mot17_mini.sh
 ```
 
@@ -123,26 +133,80 @@ reports/parallel_yolo_mpi_report.md
 
 ## 5. If Full Run Is Too Fast For N
 
-If even 300 frames is much less than 2 minutes, run a larger `find_N` pass:
+If even 300 frames is much less than 2 minutes, run a larger `find_N` pass on a full MOT17 sequence. This keeps the mini dataset for correctness/accuracy, but uses a longer input to satisfy the required 2-3 minute `N`.
 
 ```bash
-YOLO_REPORT_DIR="results/report_mot17_mini_findN_long_$(date +%Y%m%d-%H%M%S)" \
+long_dir="results/findN_long_fullseq_$(date +%Y%m%d-%H%M%S)"
+
+YOLO_RUN_DIR="$long_dir" \
+YOLO_SOURCE=data/mot17-fullseq/MOT17-05-SDP-837_960x540.mp4 \
+YOLO_MODEL=models/yolo11n.pt \
 YOLO_DEVICE=cpu \
 YOLO_IMGSZ=320 \
-YOLO_TILE_GRID=4x3 \
+YOLO_TILE_GRID=5x4 \
 YOLO_SCHEDULE=dynamic \
-YOLO_REPORT_MPI_NP=12 \
-YOLO_REPORT_HOSTFILE=configs/hosts_macos_core \
-YOLO_FIND_FRAME_LIST="300 450 600 750 900 1200" \
-YOLO_GRANULARITY_GRIDS="4x3" \
-YOLO_P_LIST="1" \
-YOLO_SPEEDUP_FRAMES=300 \
-bash scripts/run/report_mot17_mini.sh
+YOLO_NP=12 \
+YOLO_USE_HOSTFILE=1 \
+YOLO_HOSTFILE=configs/hosts_macos_core \
+YOLO_FIND_FRAME_LIST="300 600 837" \
+bash scripts/run/find_N.sh
+
+.venv/bin/python scripts/report/plots/plot_find_n.py \
+  --input "$long_dir/raw/find_N.csv" \
+  --output "$long_dir/figures/find_N_runtime.png"
 ```
 
-Then choose `N` from `find_N/raw/find_N.csv`.
+Then choose `N` from `$long_dir/raw/find_N.csv`. In the latest measured run, `N=600` with `tile_grid=5x4` took about `123.7s`, so it is a good 2-3 minute input size.
 
-## 6. If Full Run Is Too Slow
+## 6. Speedup With 2N
+
+After choosing `N=600`, create a 1200-frame benchmark video and run the speedup sweep on it.
+
+```bash
+.venv/bin/python scripts/assets/make_speedup_benchmark_video.py \
+  --output data/mot17-benchmark/MOT17-speedup-1200_960x540.mp4 \
+  --frames 1200 \
+  --width 960 \
+  --height 540 \
+  --source data/mot17-fullseq/MOT17-02-SDP-600_960x540.mp4 \
+  --source data/mot17-fullseq/MOT17-05-SDP-837_960x540.mp4
+
+mkdir -p /Users/Shared/yolo-mpi-people-count/data/mot17-benchmark
+rsync -az data/mot17-benchmark/MOT17-speedup-1200_960x540.mp4 \
+  /Users/Shared/yolo-mpi-people-count/data/mot17-benchmark/
+rsync -az data/mot17-benchmark/MOT17-speedup-1200_960x540.mp4 \
+  node1:/Users/Shared/yolo-mpi-people-count/data/mot17-benchmark/
+rsync -az data/mot17-benchmark/MOT17-speedup-1200_960x540.mp4 \
+  node2:/Users/Shared/yolo-mpi-people-count/data/mot17-benchmark/
+
+speed_env="/tmp/yolo_speedup2n_cluster.env"
+cp configs/cluster_macos.env "$speed_env"
+perl -0pi -e 's/^MPI_MAP_BY=.*/MPI_MAP_BY=node:OVERSUBSCRIBE/m' "$speed_env"
+
+YOLO_CLUSTER_ENV="$speed_env" \
+YOLO_RUN_DIR="results/report_mot17_mini_final_<timestamp>/speedup_2N" \
+YOLO_SOURCE=data/mot17-benchmark/MOT17-speedup-1200_960x540.mp4 \
+YOLO_MODEL=models/yolo11n.pt \
+YOLO_DEVICE=cpu \
+YOLO_IMGSZ=320 \
+YOLO_TILE_GRID=5x4 \
+YOLO_SCHEDULE=dynamic \
+YOLO_MASTER_COMPUTE=1 \
+YOLO_SPEEDUP_FRAMES=1200 \
+YOLO_P_LIST="1 2 4 8 12" \
+YOLO_USE_HOSTFILE=1 \
+YOLO_SWEEP_HOSTFILE=configs/hosts_macos_core \
+bash scripts/run/speedup_sweep.sh
+```
+
+Latest measured result:
+
+```text
+P=12, with communication speedup = 1.939
+P=12, without communication speedup = 2.011
+```
+
+## 7. If Full Run Is Too Slow
 
 Use a smaller model input and fewer grids:
 
@@ -155,7 +219,7 @@ YOLO_SPEEDUP_FRAMES=150
 
 In the report, state that the chosen `N` is the largest feasible value under the demo time limit.
 
-## 7. Optional Full Sequence Stress Test
+## 8. Optional Full Sequence Stress Test
 
 Run this only after the main report data is collected.
 
@@ -169,7 +233,87 @@ bash scripts/run/mot17_fullseq_accuracy_suite.sh
 
 Use this for an extra table, not as the main grade-critical experiment.
 
-## 8. Live Demo Command
+## 9. Heterogeneous 24-Process Balance Experiment
+
+This is an advanced experiment for extra report quality. It compares:
+
+```text
+uniform_24  : master/node1/node2 = 8/8/8 ranks
+weighted_24 : master/node1/node2 = 8/10/6 ranks
+```
+
+The weighted case gives more ranks to the stronger node and fewer ranks to the weaker node.
+
+```bash
+YOLO_RUN_DIR="results/heterogeneous_balance_final_$(date +%Y%m%d-%H%M%S)" \
+YOLO_DEVICE=cpu \
+YOLO_IMGSZ=320 \
+YOLO_CONF=0.35 \
+YOLO_IOU=0.50 \
+YOLO_SCHEDULE=dynamic \
+YOLO_HET_FRAMES=150 \
+YOLO_HET_TILE_GRID=5x4 \
+YOLO_HET_NP=24 \
+bash scripts/run/heterogeneous_balance.sh
+```
+
+Use these files in the report:
+
+```text
+heterogeneous_overview.csv
+figures/heterogeneous_balance.png
+uniform_24/host_metrics.csv
+weighted_24/host_metrics.csv
+uniform_24/rank_metrics_stacked.png
+weighted_24/rank_metrics_stacked.png
+```
+
+Report wording:
+
+```text
+Because the cluster is heterogeneous, a fixed equal-slot mapping can leave a
+stronger machine underused or a weaker machine overloaded. We therefore added
+a weighted 24-rank experiment. The mapping 8/10/6 assigns more processes to
+node1, fewer to node2, and uses dynamic scheduling so faster ranks naturally
+consume more tasks.
+```
+
+## 10. Scheduler Comparison
+
+This is included in the full report command when `YOLO_RUN_SCHEDULER_COMPARE=1`.
+Run it manually only if you need to regenerate that section:
+
+```bash
+YOLO_RUN_DIR="results/scheduler_comparison_final_$(date +%Y%m%d-%H%M%S)" \
+YOLO_DEVICE=cpu \
+YOLO_IMGSZ=320 \
+YOLO_TILE_GRID=4x3 \
+YOLO_SCHED_COMPARE_FRAMES=150 \
+YOLO_SCHED_COMPARE_NP=12 \
+YOLO_SCHED_COMPARE_HOSTFILE=configs/hosts_macos_core \
+YOLO_USE_HOSTFILE=1 \
+bash scripts/run/scheduler_comparison.sh
+```
+
+Use these files in the report:
+
+```text
+scheduler_comparison.csv
+figures/scheduler_comparison.png
+static/rank_metrics_stacked.png
+dynamic/rank_metrics_stacked.png
+```
+
+Report wording:
+
+```text
+Static scheduling is simpler and has lower coordination overhead. Dynamic
+scheduling is more general for irregular videos and heterogeneous machines,
+but it can be slower on small inputs because rank 0 must dispatch many tasks
+and receive many result payloads.
+```
+
+## 11. Live Demo Command
 
 This is for presentation only, not benchmark tables.
 
@@ -211,15 +355,19 @@ Live camera is a demonstration of the application pipeline. The official
 benchmark results are collected from offline MOT17 video on CPU/OpenMPI.
 ```
 
-## 9. Report Checklist
+## 12. Report Checklist
 
 Before submission, verify:
 
 - [ ] `correctness_pass=YES`
 - [ ] `accuracy.csv` has MAE/RMSE
 - [ ] `find_N_runtime.png` exists
+- [ ] long find_N pass reaches 2-3 minutes
+- [ ] `granularity_overview.png` exists
 - [ ] `rank_metrics_stacked.png` exists for every grid
+- [ ] `scheduler_comparison.png` exists
 - [ ] `speedup.png` exists
+- [ ] `speedup_2N/figures/speedup.png` exists for P=1,2,4,8,12
 - [ ] report says task-level parallelism
 - [ ] report says hybrid temporal-spatial decomposition
 - [ ] report explains 1D flattened task mapping
@@ -227,4 +375,5 @@ Before submission, verify:
 - [ ] report explains dynamic load balancing
 - [ ] report includes pseudo-code
 - [ ] report includes screenshots/figures from result directory
+- [ ] optional: heterogeneous 24-process experiment is included
 - [ ] report does not claim MPS/GPU benchmark as CPU-core benchmark
