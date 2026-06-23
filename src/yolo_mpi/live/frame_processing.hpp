@@ -122,6 +122,24 @@ static std::vector<Detection> merge_anchor_and_tile_detections(
     int frame_width,
     int frame_height
 ) {
+    if (cfg.live_anchor_policy == "anchor-only") {
+        // Most stable live display: trust only the full-frame YOLO result.
+        return merge_frame_detections(cfg, anchors, frame_width, frame_height);
+    }
+
+    if (cfg.live_anchor_policy == "anchor-gate" && !anchors.empty()) {
+        // Crowd-safe mode: tile ranks still compute, but the full-frame pass
+        // decides the visible count. This prevents tile false positives from
+        // turning three people into many duplicated people.
+        return merge_frame_detections(cfg, anchors, frame_width, frame_height);
+    }
+
+    if (cfg.live_anchor_policy == "anchor-gate" && anchors.empty()) {
+        // If the full-frame pass misses everyone, fall back to tile results so
+        // the display does not get stuck at zero.
+        return merge_frame_detections(cfg, tiles, frame_width, frame_height);
+    }
+
     std::vector<Detection> combined = anchors;
 
     for (const auto& tile_det : tiles) {

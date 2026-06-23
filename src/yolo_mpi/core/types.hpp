@@ -70,10 +70,13 @@ struct Config {
     bool live_view = false;
     bool live_master_compute = true;
     bool live_anchor_full_frame = false;
+    std::string live_anchor_policy = "merge";
     bool live_temporal_dedup = false;
     double live_temporal_center = 0.55;
     double live_temporal_ios = 0.35;
     double live_fps = 0.0;
+    double live_view_scale = 1.0;
+    int live_view_max_width = 0;
     int jpeg_quality = 80;
 };
 

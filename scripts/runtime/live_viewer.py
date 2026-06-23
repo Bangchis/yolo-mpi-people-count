@@ -20,6 +20,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--window-name", default="YOLO MPI Live")
     parser.add_argument("--save-dir", default="")
     parser.add_argument("--max-width", type=int, default=1280)
+    parser.add_argument("--scale", type=float, default=1.0)
     return parser.parse_args()
 
 
@@ -31,6 +32,8 @@ def main() -> int:
     save_dir = Path(args.save_dir) if args.save_dir else None
     if save_dir:
         save_dir.mkdir(parents=True, exist_ok=True)
+    if args.display:
+        cv2.namedWindow(args.window_name, cv2.WINDOW_NORMAL)
 
     frame_id = -1
     width = 0
@@ -104,9 +107,14 @@ def main() -> int:
         if save_dir:
             cv2.imwrite(str(save_dir / f"frame_{frame_id:06d}.jpg"), frame)
         if args.display:
+            if args.scale > 0 and args.scale != 1.0:
+                new_w = max(1, int(round(frame.shape[1] * args.scale)))
+                new_h = max(1, int(round(frame.shape[0] * args.scale)))
+                frame = cv2.resize(frame, (new_w, new_h))
             if args.max_width > 0 and frame.shape[1] > args.max_width:
                 scale = args.max_width / float(frame.shape[1])
                 frame = cv2.resize(frame, (args.max_width, int(frame.shape[0] * scale)))
+            cv2.resizeWindow(args.window_name, frame.shape[1], frame.shape[0])
             cv2.imshow(args.window_name, frame)
             if cv2.waitKey(1) & 0xFF == ord("q"):
                 break

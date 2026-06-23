@@ -98,6 +98,8 @@ static Config parse_args(int argc, char** argv) {
             cfg.live_master_compute = read_bool_arg(need_value(key));
         } else if (key == "--live-anchor-full-frame") {
             cfg.live_anchor_full_frame = read_bool_arg(need_value(key));
+        } else if (key == "--live-anchor-policy") {
+            cfg.live_anchor_policy = need_value(key);
         } else if (key == "--live-temporal-dedup") {
             cfg.live_temporal_dedup = read_bool_arg(need_value(key));
         } else if (key == "--live-temporal-center") {
@@ -106,6 +108,10 @@ static Config parse_args(int argc, char** argv) {
             cfg.live_temporal_ios = std::stod(need_value(key));
         } else if (key == "--live-fps") {
             cfg.live_fps = std::stod(need_value(key));
+        } else if (key == "--live-view-scale") {
+            cfg.live_view_scale = std::stod(need_value(key));
+        } else if (key == "--live-view-max-width") {
+            cfg.live_view_max_width = std::stoi(need_value(key));
         } else if (key == "--jpeg-quality") {
             cfg.jpeg_quality = std::stoi(need_value(key));
         } else if (key == "--help") {
@@ -149,6 +155,16 @@ static Config parse_args(int argc, char** argv) {
 
     if (cfg.live_temporal_center < 0 || cfg.live_temporal_ios < 0 || cfg.live_temporal_ios > 1) {
         throw std::runtime_error("--live-temporal-center and --live-temporal-ios are out of range");
+    }
+
+    if (cfg.live_view_scale <= 0 || cfg.live_view_max_width < 0) {
+        throw std::runtime_error("--live-view-scale must be positive and --live-view-max-width cannot be negative");
+    }
+
+    if (cfg.live_anchor_policy != "merge" &&
+        cfg.live_anchor_policy != "anchor-gate" &&
+        cfg.live_anchor_policy != "anchor-only") {
+        throw std::runtime_error("--live-anchor-policy must be merge, anchor-gate, or anchor-only");
     }
 
     return cfg;

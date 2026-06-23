@@ -35,6 +35,8 @@ static std::vector<std::string> viewer_args(const Config& cfg) {
         cfg.python_bin,
         cfg.viewer_script,
         "--display", cfg.live_view ? "1" : "0",
+        "--scale", std::to_string(cfg.live_view_scale),
+        "--max-width", std::to_string(cfg.live_view_max_width),
         "--save-dir", (fs::path(cfg.output) / "live_frames").string(),
     };
 }
