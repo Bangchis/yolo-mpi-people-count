@@ -20,7 +20,7 @@ This project studies the parallelization of video-based people counting on a sma
 
 The video stream is decomposed along both time and image space. Frames provide independent temporal work units, and each frame may be divided into image regions to increase task granularity. These tasks are then mapped to MPI processes using static scheduling or a dynamic master-worker strategy. The master process gathers detector outputs, remaps bounding boxes to the original frame, removes duplicates across region boundaries, and produces frame-level people counts. This design exposes the main issues of parallel programming: decomposition, mapping, communication, load balancing, granularity, and speedup.
 
-Experiments were conducted on MOT17-derived video data. The parallel implementation was first validated against a serial baseline, producing identical frame counts in the correctness test. The detector output was also compared against MOT17 ground truth counts to separate model accuracy from parallel correctness. A long-sequence benchmark identified a 600-frame workload whose wall-clock runtime was 123.667 seconds on twelve processes, satisfying the required two-to-three-minute input-size criterion. For a 1200-frame workload, the system achieved a wall-clock speedup of 1.939x at twelve processes. Additional experiments investigated granularity, scheduler behavior, and weighted process placement on a heterogeneous cluster.
+Experiments were conducted on MOT17-derived video data. The parallel implementation was first validated against a serial baseline, producing identical frame counts in the correctness test. The detector output was also compared against MOT17 ground truth counts to separate model accuracy from parallel correctness. A long-sequence benchmark identified a 600-frame workload whose wall-clock runtime was 123.667 seconds on twelve processes, satisfying the required two-to-three-minute input-size criterion. For a 1200-frame workload, the system achieved a wall-clock speedup of 1.939x at twelve processes. Additional experiments investigated granularity, scheduler behavior, and weighted process placement. The best weighted placement reduced the idle-gap indicator from 0.466 to 0.235, satisfying the twenty-five percent load-balance criterion.
 
 **Keywords:** parallel computing, OpenMPI, object detection, YOLO, people counting, load balancing, speedup, distributed video processing.
 
@@ -46,7 +46,7 @@ Experiments were conducted on MOT17-derived video data. The parallel implementat
 4. Per-process timing for the four-by-three configuration
 5. Static and dynamic scheduling comparison
 6. Speedup on the twelve-hundred-frame workload
-7. Weighted mapping on the heterogeneous cluster
+7. Weighted static placement comparison
 
 ## List of Tables
 
@@ -59,8 +59,8 @@ Experiments were conducted on MOT17-derived video data. The parallel implementat
 7. Granularity and load balance
 8. Scheduler comparison
 9. Speedup evaluation
-10. Weighted mapping
-11. Work distribution by host
+10. Weighted static placement
+11. Per-host behavior under weighted placement
 12. Assignment requirement mapping
 
 ## 1. Introduction
@@ -213,7 +213,7 @@ Table 2 summarizes the main configuration used for the reported CPU experiments.
 |---|---|
 | Detector | Pretrained YOLO |
 | Benchmark device | CPU |
-| Main scheduler | Dynamic master-worker scheduling |
+| Main scheduler | Static scheduling for optimized benchmark; dynamic scheduling for comparison |
 | Main process count | Twelve processes |
 | Main region grid | Four by three regions |
 | Long-run region grid | Five by four regions |
@@ -242,7 +242,7 @@ The assignment requires an input size whose runtime is approximately two to thre
 
 The granularity experiment varies the number of image regions per frame. The tested configurations range from a full-frame task to finer spatial divisions. For each configuration, the report records task count, maximum computation time, average computation time, total communication time, total idle time, and an idle-gap indicator. A stacked per-process chart is used to visualize computation, communication, and idle time.
 
-The assignment specifies that if the idle time between any two processes differs by more than twenty-five percent, the system should be considered insufficiently balanced. The report explicitly applies this criterion and discusses why the measured cluster does not achieve ideal balance on the compact dataset.
+The assignment specifies that if the idle time between any two processes differs by more than twenty-five percent, the system should be considered insufficiently balanced. The report explicitly applies this criterion. Initial equal placement does not satisfy the criterion, so a weighted static placement is also tested on the heterogeneous cluster.
 
 ### 6.5 Scheduler Comparison
 
@@ -324,16 +324,16 @@ The balance result is not ideal. Rather than hiding this, the experiment makes t
 
 ### 7.5 Static and Dynamic Scheduling
 
-Table 8 compares static and dynamic scheduling on the same compact input.
+Table 8 compares static and dynamic scheduling on the same 600-frame input. The experiment uses twelve processes and a five-by-four region grid.
 
 | Scheduler | Processes | Frames | Region grid | Runtime with communication (s) | Runtime without communication (s) | Load imbalance | Idle-gap indicator | Balance result |
 |---|---:|---:|---|---:|---:|---:|---:|---|
-| Static | 12 | 150 | Four by three | 18.437 | 13.823 | 1.807 | 0.754 | Not balanced |
-| Dynamic | 12 | 150 | Four by three | 23.262 | 17.699 | 2.815 | 0.826 | Not balanced |
+| Static | 12 | 600 | Five by four | 40.619 | 36.522 | 1.202 | 0.466 | Not balanced |
+| Dynamic | 12 | 600 | Five by four | 102.316 | 96.959 | 2.778 | 0.837 | Not balanced |
 
-![Static and dynamic scheduling comparison](../results/report_mot17_mini_final_20260623-154318/scheduler/figures/scheduler_comparison.png)
+![Static and dynamic scheduling comparison](../results/extra_report_live_20260623-185430/scheduler_N600/figures/scheduler_comparison.png)
 
-Dynamic scheduling is not faster in this compact experiment because its coordination overhead is significant relative to the amount of work. This is an important observation: a more flexible scheduler is not automatically faster. Dynamic scheduling remains valuable because it generalizes better to irregular workloads and heterogeneous machines, but the input must be large enough for its benefits to overcome dispatch overhead.
+Static scheduling is much faster in this experiment. Dynamic scheduling is more flexible, but it creates frequent task-dispatch and result-collection traffic at the master. For this tiled YOLO workload, the dynamic overhead is larger than the load-balancing benefit. This is an important observation: a more flexible scheduler is not automatically faster. Static scheduling is therefore selected for the final weighted-placement load-balance experiment.
 
 ### 7.6 Speedup on a Workload Twice as Large
 
@@ -355,31 +355,29 @@ This result is reasonable for a real cluster running a mixed workload. Pure nume
 
 ### 7.7 Weighted Mapping on Heterogeneous Machines
 
-Table 10 shows the weighted mapping experiment using twenty-four processes. The weighted placement gives more processes to the stronger machine and fewer to the weaker one.
+Table 10 shows the weighted static placement experiment on the 600-frame workload. The cluster is heterogeneous: the master is a MacBook Air M4, node1 is a MacBook Pro M4, and node2 is a MacBook Air M2. Equal placement assigns four ranks to each machine. Weighted placement assigns more ranks to the stronger machine and fewer ranks to the weaker machine.
 
-| Mapping | Processes | Frames | Region grid | Runtime with communication (s) | Runtime without communication (s) | Load imbalance |
-|---|---:|---:|---|---:|---:|---:|
-| Uniform placement | 24 | 150 | Five by four | 43.659 | 32.268 | 2.607 |
-| Weighted placement | 24 | 150 | Five by four | 47.238 | 30.864 | 2.379 |
+| Placement | Process distribution | Runtime with communication (s) | Runtime without communication (s) | Idle-gap indicator | Balance result |
+|---|---|---:|---:|---:|---|
+| Uniform placement | Master 4, node1 4, node2 4 | 40.619 | 36.522 | 0.466 | Not balanced |
+| Weighted placement | Master 3, node1 6, node2 3 | 34.712 | 30.339 | 0.371 | Not balanced |
+| Weighted placement | Master 4, node1 6, node2 2 | 29.581 | 27.484 | 0.235 | Balanced |
 
-Table 11 shows how work was distributed across hosts.
+Table 11 summarizes the per-host behavior of the best placement.
 
-| Mapping | Host category | Assigned processes | Processed tasks | Task share |
-|---|---|---:|---:|---:|
-| Uniform placement | Weaker worker | 8 | 695 | 0.232 |
-| Uniform placement | Stronger worker | 8 | 1083 | 0.361 |
-| Uniform placement | Master | 8 | 1222 | 0.407 |
-| Weighted placement | Weaker worker | 6 | 417 | 0.139 |
-| Weighted placement | Stronger worker | 10 | 1335 | 0.445 |
-| Weighted placement | Master | 8 | 1248 | 0.416 |
+| Host | Machine type | Assigned ranks | Approximate per-rank compute time |
+|---|---|---:|---:|
+| Master | MacBook Air M4 | 4 | 24.8-25.1 s |
+| node1 | MacBook Pro M4 | 6 | 26.8-27.5 s |
+| node2 | MacBook Air M2 | 2 | 21.0-21.3 s |
 
-![Weighted mapping on the heterogeneous cluster](../results/report_mot17_mini_final_20260623-154318/heterogeneous/figures/heterogeneous_balance.png)
+![Weighted static placement comparison](../results/extra_report_live_20260623-185430/weighted_static_N600/weighted_static_comparison.png)
 
-Weighted placement improves computation-only time and reduces measured load imbalance. However, wall-clock runtime increases because communication and coordination costs become larger. This shows that assigning more processes to stronger hardware can help, but only if the communication overhead remains controlled. The result also supports the broader conclusion that process count alone is not a sufficient measure of parallel performance.
+The final four-six-two placement reduces runtime and satisfies the twenty-five percent load-balance criterion. The experiment shows why equal process placement is not appropriate on a heterogeneous physical cluster. Equal placement gives every machine the same number of ranks, but the machines do not have the same performance. Weighted placement uses measured behavior to assign more work to the stronger node and less work to the weaker node.
 
 ### 7.8 Summary of Experimental Findings
 
-The experiments support four main conclusions. First, the MPI implementation preserves the serial pipeline output in the correctness test. Second, the detector accuracy on MOT17 is limited by the pretrained model and the difficulty of crowded scenes, not by MPI parallelization. Third, the selected six-hundred-frame input satisfies the required runtime interval, and the twelve-hundred-frame workload shows measurable speedup. Fourth, granularity and mapping strongly affect performance, but neither finer tasks nor more processes automatically guarantee better runtime.
+The experiments support four main conclusions. First, the MPI implementation preserves the serial pipeline output in the correctness test. Second, the detector accuracy on MOT17 is limited by the pretrained model and the difficulty of crowded scenes, not by MPI parallelization. Third, the selected six-hundred-frame input satisfies the required runtime interval, and the twelve-hundred-frame workload shows measurable speedup. Fourth, granularity and mapping strongly affect performance. Equal placement fails the load-balance criterion, while the measured weighted placement satisfies it and reduces runtime.
 
 The results also show that communication and synchronization are central issues in this project. The algorithm contains a sequential merging component at the master, and distributed execution introduces coordination overhead. These factors limit speedup, but they are precisely the factors that make the project relevant to parallel computing rather than merely object detection.
 
@@ -399,7 +397,7 @@ Table 12 maps the assignment requirements to the project outcomes.
 | Decomposition method | Hybrid temporal-spatial decomposition |
 | Mapping technique | One-dimensional flattened task mapping with static, dynamic, and weighted variants |
 | Communication strategy | Master-worker star topology with MPI communication |
-| Load balancing | Dynamic scheduling, granularity study, and weighted process placement |
+| Load balancing | Granularity study, scheduler comparison, and weighted process placement satisfying the twenty-five percent criterion |
 | Parallel algorithm description | Static and dynamic algorithms are described in the methodology section |
 | Correctness | Serial and MPI outputs match in the correctness experiment |
 | Input-size selection | A six-hundred-frame workload runs in 123.667 seconds |
@@ -416,7 +414,7 @@ The second limitation is communication overhead. Dynamic scheduling is more flex
 
 The third limitation is duplicate handling. Spatial decomposition requires careful merging near region boundaries. The current global suppression and ownership rules reduce duplicates, but difficult camera-close cases can still create false positives or false merges. A temporal tracker such as ByteTrack or DeepSORT could stabilize counts across frames.
 
-The fourth limitation is hardware heterogeneity. The cluster contains machines with different performance levels. Weighted placement helps compute-only time, but it can increase wall-clock time if communication grows. A more advanced scheduler could estimate machine speed online and adapt task assignment continuously rather than relying only on fixed process placement.
+The fourth limitation is hardware heterogeneity. The cluster contains machines with different performance levels. Weighted placement improves the measured load balance, but it is still manually selected from a small number of candidate placements. A more advanced scheduler could estimate machine speed online and adapt task assignment continuously rather than relying only on fixed process placement.
 
 Finally, the experiments were conducted on a small three-machine cluster. This is appropriate for the course requirement, but larger clusters would require additional analysis of network bottlenecks, master scalability, and distributed result aggregation.
 
@@ -424,7 +422,7 @@ Finally, the experiments were conducted on a small three-machine cluster. This i
 
 This project implemented and evaluated a parallel people-counting pipeline using YOLO and C++17/OpenMPI on a three-machine physical cluster. The algorithm uses task-level parallelism with hybrid temporal-spatial decomposition. Static scheduling, dynamic scheduling, and weighted process placement were implemented and experimentally studied.
 
-The parallel implementation passed the serial-versus-MPI correctness test. A 600-frame workload was selected because its twelve-process runtime was 123.667 seconds, satisfying the required two-to-three-minute range. On a 1200-frame workload, the system achieved a wall-clock speedup of 1.939x at twelve processes. The granularity and scheduler experiments showed that task size, communication overhead, and hardware heterogeneity strongly influence performance.
+The parallel implementation passed the serial-versus-MPI correctness test. A 600-frame workload was selected because its twelve-process runtime was 123.667 seconds, satisfying the required two-to-three-minute range. On a 1200-frame workload, the system achieved a wall-clock speedup of 1.939x at twelve processes. The granularity and scheduler experiments showed that task size, communication overhead, and hardware heterogeneity strongly influence performance. The final weighted static placement reduced the idle-gap indicator to 0.235, satisfying the load-balance criterion.
 
 Although the speedup is not linear, the project demonstrates the central concepts of parallel programming: decomposition, mapping, communication, load balancing, correctness, granularity, and performance evaluation. The live-camera mode further shows that the system can be used as an interactive distributed vision application, while the formal CPU benchmarks provide reproducible evidence for the course report.
 
