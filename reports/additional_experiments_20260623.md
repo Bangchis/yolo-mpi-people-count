@@ -89,8 +89,16 @@ Interpretation:
 
 Repeated speedup measurements were not run in this session because node2 was
 offline and the local-only baseline was already very time-consuming. When all
-three machines are online again, the recommended next step is to rerun the
-official speedup sweep for two or three repetitions and report the mean runtime.
+three machines are online again, the recommended next step is to run the
+prepared one-command rerun script:
+
+```text
+bash scripts/run/extra_report_experiments.sh
+```
+
+The script performs the local-only versus cluster comparison, the 600-frame
+static-versus-dynamic experiment, the 600-frame granularity experiment, and
+repeated speedup measurements on the 1200-frame workload.
 
 ## Recommendation for the Final Defense
 
