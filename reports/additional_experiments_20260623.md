@@ -144,9 +144,21 @@ Partial granularity result:
 
 ## Speedup Repeats
 
-Repeated speedup measurements on the 1200-frame workload were not run in this
-session because the full 600-frame rerun already consumed the available cluster
-time. If the group gets another stable cluster window, the prepared command is:
+Repeated speedup measurements on the 1200-frame workload were attempted after
+the full 600-frame rerun. The first repeat completed the one-process and
+two-process cases:
+
+| Processes | Runtime with communication (s) | Runtime without communication (s) |
+|---:|---:|---:|
+| 1 | 288.951 | 286.842 |
+| 2 | 319.745 | 316.981 |
+
+The repeat could not continue to four, eight, and twelve processes because node2
+left the LAN again and OpenMPI failed to spawn its remote daemon over SSH.
+Therefore these partial repeat numbers should not be used as the final speedup
+repeat table.
+
+If the group gets another stable cluster window, the prepared command is:
 
 ```text
 bash scripts/run/extra_report_experiments.sh
