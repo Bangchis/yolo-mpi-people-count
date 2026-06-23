@@ -94,6 +94,8 @@ Vì input mini tương đối nhỏ, task nhiều nhưng mỗi task không đủ
 
 Kết luận đúng là: dynamic không luôn nhanh hơn, nhưng tổng quát hơn cho video irregular và cụm máy không đồng nhất.
 
+Rerun bổ sung với 600 frame trên partial cluster master+node1 cũng cho kết quả tương tự: static nhanh hơn dynamic. Vì vậy khi bảo vệ không nên nói dynamic nhanh hơn; nên nói dynamic là chiến lược tổng quát hơn để xử lý task không đều, nhưng overhead điều phối có thể làm runtime xấu hơn.
+
 ## 9. Correctness được kiểm tra thế nào?
 
 So sánh serial YOLO và MPI YOLO với cùng video, model, threshold, tile grid và hậu xử lý.
@@ -155,6 +157,14 @@ P=12 speedup without communication = 2.011x
 ```
 
 Speedup không tuyến tính do communication overhead, rank 0 gom kết quả, YOLO worker startup, heterogeneity và CPU contention.
+
+## 12b. Nếu thầy hỏi chạy một máy local-only thì sao?
+
+Có chạy thêm local-only trên master với 600 frame và grid `5x4`.
+
+Kết quả tốt nhất trong rerun là `P=2`, khoảng `288.494s`. Khi tăng lên `P=4` và `P=8`, runtime không tốt hơn do tranh CPU, worker overhead và scheduling overhead trên cùng một máy.
+
+So với kết quả 3 máy chính trong report, `P=12` cluster đạt `123.667s` ở cùng scale 600 frame. Cách nói gọn: một máy local-only dùng nhiều process không đảm bảo scale tốt; phân tán sang nhiều máy vật lý giúp giảm áp lực trên một CPU, dù vẫn có network overhead.
 
 ## 13. Vì sao không dùng GPU/MPS cho benchmark chính?
 
