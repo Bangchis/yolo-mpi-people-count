@@ -101,6 +101,32 @@ Interpretation:
 - For this YOLO task, static assignment is strong because the generated tile
   tasks are numerous and reasonably regular at this input size.
 
+## Weighted Static Placement on 600 Frames
+
+After static scheduling outperformed dynamic scheduling, one additional
+placement experiment was run to give the faster node1 more work. The uniform
+placement used four ranks on each machine. The weighted placement used three
+ranks on the master, six ranks on node1, and three ranks on node2.
+
+The hostfile for the weighted run is:
+
+```text
+configs/hosts_macos_core_weighted_12
+```
+
+| Placement | Runtime with communication (s) | Runtime without communication (s) | Idle-gap indicator | Balance result |
+|---|---:|---:|---:|---|
+| Uniform four-four-four | 40.619 | 36.522 | 0.466 | Not balanced |
+| Weighted three-six-three | 34.712 | 30.339 | 0.371 | Not balanced |
+
+Interpretation:
+
+- Giving node1 more ranks improved runtime and reduced idle gap.
+- The system still did not meet the 25 percent load-balance criterion.
+- The result supports the report argument that heterogeneous clusters require
+  weighted placement, but a single weighted hostfile is still not enough to
+  fully solve load imbalance.
+
 ## Granularity on 600 Frames
 
 This full-cluster experiment used twelve processes, dynamic scheduling,

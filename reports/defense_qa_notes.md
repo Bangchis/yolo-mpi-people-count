@@ -88,6 +88,8 @@ Có áp dụng load balancing bằng:
 
 Kết quả cho thấy dataset nhỏ và vừa vẫn chưa đạt tiêu chí idle gap dưới 25%, vì overhead communication lớn, task YOLO không đều giữa các tile/frame, và 3 máy không đồng nhất. Đây là điểm cần nói thẳng: nhóm có đo load balance, kết quả chưa lý tưởng, và đã phân tích nguyên nhân.
 
+Có thử weighted static placement vì node1 nhanh hơn. Uniform placement `4/4/4` có idle gap khoảng `0.466`; weighted placement `3/6/3` giảm idle gap xuống khoảng `0.371` và runtime giảm từ `40.619s` xuống `34.712s`. Tức là weighted placement cải thiện đúng hướng, nhưng vẫn chưa đạt tiêu chí 25%.
+
 ## 8. Vì sao dynamic scheduling không nhanh hơn static trong bảng?
 
 Vì input mini tương đối nhỏ, task nhiều nhưng mỗi task không đủ nặng so với overhead điều phối. Dynamic phải gửi task và nhận result payload nhiều lần qua rank 0, nên có thể chậm hơn static.
