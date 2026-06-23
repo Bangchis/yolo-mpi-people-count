@@ -165,6 +165,16 @@ P=12 speedup without communication = 2.011x
 
 Speedup không tuyến tính do communication overhead, rank 0 gom kết quả, YOLO worker startup, heterogeneity và CPU contention.
 
+Rerun bổ sung cho `2N=1200` có hai sweep đầy đủ. Runtime `P=12` rất ổn định:
+
+```text
+original report sweep -> 178.306s
+new repeat            -> 178.043s
+mean                  -> 178.174s
+```
+
+Speedup dao động hơn runtime vì baseline `P=1` dao động mạnh giữa các lần chạy. Nếu thầy hỏi, nói rằng throughput cluster ở `P=12` ổn định, còn speedup phụ thuộc vào serial baseline trên laptop đang dùng thực tế.
+
 ## 12b. Nếu thầy hỏi chạy một máy local-only thì sao?
 
 Có chạy thêm local-only trên master với 600 frame và grid `5x4`.

@@ -144,19 +144,39 @@ Partial granularity result:
 
 ## Speedup Repeats
 
-Repeated speedup measurements on the 1200-frame workload were attempted after
-the full 600-frame rerun. The first repeat completed the one-process and
-two-process cases:
+Repeated speedup measurements on the 1200-frame workload were completed by
+combining the original report sweep with a new repeat after node2 rejoined the
+LAN. Both sweeps used CPU execution, a five-by-four region grid, dynamic
+scheduling, and the process list one, two, four, eight, and twelve.
 
-| Processes | Runtime with communication (s) | Runtime without communication (s) |
-|---:|---:|---:|
-| 1 | 288.951 | 286.842 |
-| 2 | 319.745 | 316.981 |
+The new repeat is stored at:
 
-The repeat could not continue to four, eight, and twelve processes because node2
-left the LAN again and OpenMPI failed to spawn its remote daemon over SSH.
-Therefore these partial repeat numbers should not be used as the final speedup
-repeat table.
+```text
+results/extra_report_live_20260623-185430/speedup_2N_repeat_1/
+```
+
+The two-repeat summary is stored at:
+
+```text
+results/extra_report_live_20260623-185430/speedup_2N_repeats_summary.csv
+```
+
+| Processes | Repeats | Mean runtime with communication (s) | Runtime stdev (s) | Mean speedup with communication |
+|---:|---:|---:|---:|---:|
+| 1 | 2 | 317.314 | 40.111 | 1.000 |
+| 2 | 2 | 297.950 | 30.823 | 1.078 |
+| 4 | 2 | 271.548 | 37.904 | 1.190 |
+| 8 | 2 | 216.715 | 22.549 | 1.482 |
+| 12 | 2 | 178.174 | 0.186 | 1.781 |
+
+Interpretation:
+
+- The twelve-process runtime is very stable across the two complete sweeps.
+- The speedup value varies because the one-process baseline varies strongly
+  between runs.
+- This supports a careful report statement: the cluster throughput at twelve
+  processes is stable, but speedup is sensitive to the serial baseline on a
+  thermally and interactively used laptop cluster.
 
 If the group gets another stable cluster window, the prepared command is:
 
@@ -164,9 +184,9 @@ If the group gets another stable cluster window, the prepared command is:
 bash scripts/run/extra_report_experiments.sh
 ```
 
-The repeat run is useful but not mandatory for the core defense, because the
-current report already contains the required speedup sweep and the additional
-600-frame three-machine sweep above.
+An additional third repeat would be useful, but it is not mandatory for the core
+defense because the current results already include two complete 1200-frame
+sweeps and the additional 600-frame three-machine sweep above.
 
 ## Recommendation for the Final Defense
 
