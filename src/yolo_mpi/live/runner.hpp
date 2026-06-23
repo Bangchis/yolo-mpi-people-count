@@ -83,11 +83,30 @@ static void run_live(const Config& cfg, int rank, int world_size) {
 
         auto frame_t0 = std::chrono::steady_clock::now();
         std::vector<Detection> frame_detections;
+        bool frame_done = false;
+        int tasks_this_frame = static_cast<int>(frame.tiles.size());
 
-        if (world_size == 1) {
+        bool anchor_first =
+            cfg.live_anchor_full_frame &&
+            (cfg.live_anchor_policy == "anchor-gate" || cfg.live_anchor_policy == "anchor-only");
+
+        if (anchor_first) {
+            // Fast/stable live mode: try one full-frame pass before spending
+            // time on many tile tasks that may create false positives.
+            auto anchor_detections = process_live_frame_anchor(cfg, *local_detector, frame, all_metrics);
+
+            if (cfg.live_anchor_policy == "anchor-only" || !anchor_detections.empty()) {
+                frame_detections = merge_frame_detections(cfg, anchor_detections, frame.width, frame.height);
+                frame_done = true;
+                tasks_this_frame = 1;
+            }
+        }
+
+        if (!frame_done && world_size == 1) {
             // Master-only fallback path for testing without node1/node2.
             frame_detections = process_live_frame_locally(cfg, *local_detector, frame, all_metrics);
-        } else {
+            frame_done = true;
+        } else if (!frame_done) {
             // Cluster path: split the frame tiles across MPI ranks.
             frame_detections = process_live_frame_distributed(
                 cfg,
@@ -96,9 +115,10 @@ static void run_live(const Config& cfg, int rank, int world_size) {
                 all_metrics,
                 world_size
             );
+            frame_done = true;
         }
 
-        if (cfg.live_anchor_full_frame) {
+        if (cfg.live_anchor_full_frame && !anchor_first) {
             // Full-frame anchor reduces duplicate/split close-camera detections.
             auto anchor_detections = process_live_frame_anchor(cfg, *local_detector, frame, all_metrics);
 
@@ -126,18 +146,18 @@ static void run_live(const Config& cfg, int rank, int world_size) {
         double latency_ms = std::chrono::duration<double, std::milli>(frame_t1 - frame_t0).count();
 
         all_detections.insert(all_detections.end(), frame_detections.begin(), frame_detections.end());
-        total_tasks += static_cast<int>(frame.tiles.size());
+        total_tasks += tasks_this_frame;
         events.push_back(LiveFrameEvent{
             frame.frame_id,
             static_cast<int>(frame_detections.size()),
-            static_cast<int>(frame.tiles.size()),
+            tasks_this_frame,
             frame.capture_ms,
             latency_ms,
         });
 
         std::cout << "LIVE_FRAME frame=" << frame.frame_id
                   << " people=" << frame_detections.size()
-                  << " tasks=" << frame.tiles.size()
+                  << " tasks=" << tasks_this_frame
                   << " latency_ms=" << std::fixed << std::setprecision(2) << latency_ms
                   << "\n";
         std::cout.flush();
