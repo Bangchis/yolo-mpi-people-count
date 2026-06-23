@@ -143,7 +143,35 @@ In dynamic scheduling, the master initially sends work to available workers. Whe
 
 This strategy is more appropriate for irregular video inference. Some image regions contain many people, while others contain mostly background. Some machines are faster than others. Dynamic scheduling adapts to these variations by assigning more tasks to processes that finish earlier. The cost of this flexibility is more frequent communication and scheduling overhead.
 
-### 4.4 Bounding-Box Merging and Duplicate Removal
+### 4.4 Parallel Algorithm Pseudo-code
+
+The following pseudo-code is written at the algorithmic level rather than as source code. It summarizes the behavior of the two scheduling strategies used in the project.
+
+**Algorithm 1. Static parallel people-counting pipeline**
+
+1. The master prepares the video workload by dividing the input sequence into frames and image regions.
+2. All processes derive the same ordered task list from the workload description.
+3. Each process selects the subset of tasks assigned to it by the static mapping rule.
+4. Each process performs local detector inference on its assigned tasks and stores the resulting people detections.
+5. All worker processes send their local detections and timing measurements to the master.
+6. The master converts all detections to full-frame coordinates.
+7. The master removes duplicated detections across neighboring regions.
+8. The master computes the people count for each frame and writes the final experimental metrics.
+
+**Algorithm 2. Dynamic master-worker people-counting pipeline**
+
+1. The master prepares the same frame-and-region task list.
+2. The master sends initial tasks to available worker processes.
+3. A worker receives a task, performs local detector inference, and sends detections and timing measurements back to the master.
+4. Whenever a worker returns a result, the master either assigns a new task or sends a termination message if no task remains.
+5. If enabled, the master also processes tasks locally while waiting for worker results.
+6. When all tasks are complete, the master gathers the final set of detections.
+7. The master performs coordinate remapping, duplicate removal, and frame-level counting.
+8. The master writes the output counts, detection records, and per-process timing metrics.
+
+The two algorithms share the same detector and post-processing stages. Their main difference is task assignment. Static scheduling reduces dispatch overhead, while dynamic scheduling is more adaptive to uneven task costs and heterogeneous machines.
+
+### 4.5 Bounding-Box Merging and Duplicate Removal
 
 Spatial decomposition creates a post-processing challenge. A person near the boundary between two regions may be detected in both regions. Without global filtering, the same person could be counted multiple times. The master therefore performs a sequence of merging operations.
 
@@ -151,7 +179,7 @@ First, detections produced in region coordinates are transformed back into full-
 
 This post-processing stage is essential for correctness. The decomposition increases parallelism, but the final answer must still correspond to people in the original frame, not people separately counted in each region.
 
-### 4.5 Timing Metrics
+### 4.6 Timing Metrics
 
 Each process records timing information in three categories: computation, communication, and idle or waiting time. Computation time represents local detector execution and local task processing. Communication time represents the exchange of task assignments, detections, and metrics. Idle time represents waiting caused by imbalance or synchronization.
 

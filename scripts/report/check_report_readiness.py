@@ -63,6 +63,7 @@ def main() -> int:
             "hybrid temporal-spatial decomposition",
             "one-dimensional flattened mapping",
             "master-worker star topology",
+            "Parallel Algorithm Pseudo-code",
             "Static scheduling",
             "six-hundred-frame workload",
             "twelve-hundred-frame workload",
