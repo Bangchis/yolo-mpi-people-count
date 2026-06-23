@@ -103,29 +103,32 @@ Interpretation:
 
 ## Weighted Static Placement on 600 Frames
 
-After static scheduling outperformed dynamic scheduling, one additional
-placement experiment was run to give the faster node1 more work. The uniform
-placement used four ranks on each machine. The weighted placement used three
-ranks on the master, six ranks on node1, and three ranks on node2.
+After static scheduling outperformed dynamic scheduling, additional placement
+experiments were run to give the faster node1 more work and reduce load on the
+slower node2. The uniform placement used four ranks on each machine. Two
+weighted placements were then tested.
 
-The hostfile for the weighted run is:
+The best weighted hostfile is:
 
 ```text
-configs/hosts_macos_core_weighted_12
+configs/hosts_macos_core_weighted_12_4_6_2
 ```
 
 | Placement | Runtime with communication (s) | Runtime without communication (s) | Idle-gap indicator | Balance result |
 |---|---:|---:|---:|---|
 | Uniform four-four-four | 40.619 | 36.522 | 0.466 | Not balanced |
 | Weighted three-six-three | 34.712 | 30.339 | 0.371 | Not balanced |
+| Weighted four-six-two | 29.581 | 27.484 | 0.235 | Balanced |
 
 Interpretation:
 
 - Giving node1 more ranks improved runtime and reduced idle gap.
-- The system still did not meet the 25 percent load-balance criterion.
+- Reducing node2 to two ranks and using four ranks on the master produced the
+  best measured balance.
+- The final weighted four-six-two placement met the 25 percent load-balance
+  criterion while also reducing runtime.
 - The result supports the report argument that heterogeneous clusters require
-  weighted placement, but a single weighted hostfile is still not enough to
-  fully solve load imbalance.
+  weighted placement rather than equal process placement.
 
 ## Granularity on 600 Frames
 
@@ -222,8 +225,8 @@ Use these extra results as supporting discussion. The best defense framing is:
   machines.
 - Static scheduling outperformed dynamic scheduling for this tiled YOLO
   workload because the dynamic dispatcher added overhead.
-- Load balance did not meet the 25 percent criterion, and the group measured
-  that explicitly rather than hiding it.
+- Equal process placement did not meet the 25 percent load-balance criterion,
+  but the weighted four-six-two placement improved the idle gap to 23.5 percent.
 - The project remains valid for the course because the report contains the
   parallel decomposition, mapping, communication, load-balance analysis,
   correctness checks, and speedup measurements required by the instructor.

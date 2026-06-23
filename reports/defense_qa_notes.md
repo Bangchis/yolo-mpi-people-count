@@ -86,9 +86,17 @@ Có áp dụng load balancing bằng:
 - Thử nhiều granularity: `1x1`, `2x2`, `4x3`, `5x4`.
 - Weighted mapping trên cụm không đồng nhất: `8/10/6` rank thay vì `8/8/8`.
 
-Kết quả cho thấy dataset nhỏ và vừa vẫn chưa đạt tiêu chí idle gap dưới 25%, vì overhead communication lớn, task YOLO không đều giữa các tile/frame, và 3 máy không đồng nhất. Đây là điểm cần nói thẳng: nhóm có đo load balance, kết quả chưa lý tưởng, và đã phân tích nguyên nhân.
+Kết quả ban đầu với equal placement chưa đạt tiêu chí idle gap dưới 25%, vì task YOLO không đều giữa các tile/frame và 3 máy không đồng nhất. Sau đó nhóm dùng weighted static placement để điều chỉnh số rank theo sức mạnh máy.
 
-Có thử weighted static placement vì node1 nhanh hơn. Uniform placement `4/4/4` có idle gap khoảng `0.466`; weighted placement `3/6/3` giảm idle gap xuống khoảng `0.371` và runtime giảm từ `40.619s` xuống `34.712s`. Tức là weighted placement cải thiện đúng hướng, nhưng vẫn chưa đạt tiêu chí 25%.
+Cụ thể:
+
+```text
+uniform 4/4/4 -> runtime 40.619s, idle gap 0.466, not balanced
+weighted 3/6/3 -> runtime 34.712s, idle gap 0.371, not balanced
+weighted 4/6/2 -> runtime 29.581s, idle gap 0.235, balanced
+```
+
+Weighted `4/6/2` nghĩa là master MacBook Air M4 dùng 4 ranks, node1 MacBook Pro M4 dùng 6 ranks, node2 MacBook Air M2 dùng 2 ranks. Đây là cấu hình tốt nhất trong các cấu hình đã thử và đạt tiêu chí 25%.
 
 ## 8. Vì sao dynamic scheduling không nhanh hơn static trong bảng?
 
