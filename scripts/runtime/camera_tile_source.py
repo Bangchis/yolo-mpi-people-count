@@ -79,7 +79,12 @@ def main() -> int:
         source = args.camera_index
         source_label = f"camera:{args.camera_index}"
 
-    cap = cv2.VideoCapture(source)
+    if args.video_source:
+        cap = cv2.VideoCapture(source)
+    else:
+        # macOS camera access is most reliable when OpenCV uses AVFoundation
+        # directly instead of probing generic video backends first.
+        cap = cv2.VideoCapture(source, cv2.CAP_AVFOUNDATION)
     if not cap.isOpened():
         fail(f"cannot open {source_label}")
 

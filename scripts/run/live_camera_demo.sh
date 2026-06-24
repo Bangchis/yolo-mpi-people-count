@@ -48,7 +48,7 @@ cpp_cmd=(build/yolo_mpi_cpp
   --dedup-near-camera "${YOLO_DEDUP_NEAR_CAMERA:-0}"
   --dedup-large-area-ratio "${YOLO_DEDUP_LARGE_AREA_RATIO:-0.12}"
   --dedup-merge "${YOLO_DEDUP_MERGE:-1}"
-  --schedule dynamic
+  --schedule static
   --chunk-size "${YOLO_CHUNK_SIZE:-1}"
   --frames "${YOLO_LIVE_FRAMES:-100}"
   --width "${YOLO_FRAME_WIDTH:-1280}"

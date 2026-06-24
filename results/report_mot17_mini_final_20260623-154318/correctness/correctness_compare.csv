@@ -1,0 +1,2 @@
+correctness_pass,frames_compared,mismatched_frames,max_abs_error,mean_abs_error,serial_csv,mpi_csv
+YES,30,0,0,0.000000,results/report_mot17_mini_final_20260623-154318/correctness/serial/frame_counts.csv,results/report_mot17_mini_final_20260623-154318/correctness/mpi/frame_counts.csv

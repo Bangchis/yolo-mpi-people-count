@@ -1,0 +1,4 @@
+label,rank_count,total_tasks,compute_s_max,compute_s_min,compute_s_avg,comm_s_total,idle_s_total,idle_gap_ratio,load_balance_pass
+grid_2x2,12,2400,14.980662,4.224682,7.056415,121.983916,95.090967,0.717991,NO
+grid_4x3,12,7200,47.290694,11.404409,19.851701,362.261372,329.267917,0.758845,NO
+grid_5x4,12,12000,96.958871,15.758155,34.901250,777.383194,744.691448,0.837476,NO

@@ -1,0 +1,2 @@
+frames_compared,mae,rmse,mean_abs_percentage_error,exact_match_rate,mean_gt_count,mean_pred_count,predicted_csv,ground_truth_csv
+300,7.983333,8.269018,0.489728,0.000000,16.206667,8.223333,results/report_mot17_mini_final_20260623-154318/accuracy/prediction/frame_counts.csv,data/mot17-mini/MOT17-02-SDP-300_counts.csv

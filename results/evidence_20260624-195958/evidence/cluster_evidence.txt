@@ -1,0 +1,46 @@
+YOLO_MACOS_CLUSTER_EVIDENCE
+utc_time=2026-06-24T12:59:58Z
+repo=/Users/bangbang/Desktop/code python/yolo-mpi-people-count
+run_dir=results/evidence_20260624-195958
+hostfile=configs/hosts_macos_gpu
+np=3
+mpi_lan_cidr=192.168.8.0/24
+git_commit=60119ed409afc5c89870625e95a7ab072a14e9e6
+
+LOCAL_NODE
+MACOS_NODE_INFO
+utc_time=2026-06-24T12:59:58Z
+hostname=Phams-MacBook-Air.local
+user=bangbang
+os=macOS 26.2
+kernel=Darwin Phams-MacBook-Air.local 25.2.0 Darwin Kernel Version 25.2.0: Tue Nov 18 21:08:48 PST 2025; root:xnu-12377.61.12~1/RELEASE_ARM64_T8132 arm64
+physical_cpu=10
+logical_cpu=10
+machine=arm64
+ssh_remote_login=
+mpirun=/opt/homebrew/bin/mpirun
+mpirun (Open MPI) 5.0.9
+
+python=/Users/bangbang/.local/bin/python3
+Python 3.11.15
+ipv4_addresses:
+  192.168.8.11
+
+HOSTFILE_CONTENT
+master slots=1
+node1 slots=1
+node2 slots=1
+
+HOST_SLOTS_CSV=results/evidence_20260624-195958/evidence/host_slots.csv
+HOST_SLOTS_SUMMARY=results/evidence_20260624-195958/evidence/host_slots.env
+HOSTFILE_SLOT_TOTAL=3
+
+COMMAND: ssh master hostname
+Phams-MacBook-Air.local
+
+COMMAND: mpirun -np 3 --prefix /opt/homebrew/opt/open-mpi --hetero-nodes --map-by slot:OVERSUBSCRIBE --hostfile configs/hosts_macos_gpu --mca btl tcp,self --mca btl_tcp_if_include 192.168.8.0/24 --mca btl_tcp_disable_family 6 hostname
+Nguyens-MacBook-Air-5.local
+MacBook-Pro-M4-Pro.local
+Phams-MacBook-Air.local
+
+EVIDENCE_DONE=YES

@@ -1,0 +1,4 @@
+label,placement,runtime_s,runtime_without_comm_s,compute_max_s,compute_min_s,compute_avg_s,comm_total_s,idle_total_s,idle_gap_ratio,load_balance_pass
+uniform_static_4_4_4,"master=4,node1=4,node2=4",40.6185682,36.5223579,36.522358,19.519238,30.37943,87.600919,73.715131,0.465554,NO
+weighted_static_3_6_3,"master=3,node1=6,node2=3",34.711896200000005,30.339011600000003,30.339012,19.075921,26.021017,67.659647,51.815932,0.371241,NO
+weighted_static_4_6_2,"master=4,node1=6,node2=2",29.5810445,27.4842392,27.484239,21.032266,25.461033,19.72045,24.278477,0.234752,YES

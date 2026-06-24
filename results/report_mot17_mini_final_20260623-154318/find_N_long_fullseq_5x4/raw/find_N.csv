@@ -1,0 +1,4 @@
+frames,total_ms_with_comm,total_ms_without_comm,world_size,tile_grid,schedule
+300,54764.1761,49156.1578,12,5x4,dynamic
+600,123667.0058,114352.3971,12,5x4,dynamic
+837,146316.0946,139136.3285,12,5x4,dynamic
