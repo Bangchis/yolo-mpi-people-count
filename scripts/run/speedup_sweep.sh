@@ -10,7 +10,7 @@ run_dir="${YOLO_RUN_DIR:-results/speedup_$(date +%Y%m%d-%H%M%S)}"
 raw_dir="$run_dir/raw"
 mkdir -p "$raw_dir"
 csv="$raw_dir/speedup.csv"
-echo "world_size,total_ms_with_comm,total_ms_without_comm,speedup_with_comm,speedup_without_comm,efficiency_with_comm,efficiency_without_comm,tile_grid,schedule,comm_mode" > "$csv"
+echo "world_size,total_ms_with_comm,total_ms_without_comm,speedup_with_comm,speedup_without_comm,efficiency_with_comm,efficiency_without_comm,tile_grid,mapping,schedule,comm_mode" > "$csv"
 
 baseline_with=""
 baseline_without=""
@@ -37,6 +37,7 @@ for np in ${YOLO_P_LIST:-1 2 3}; do
     --dedup-near-camera "${YOLO_DEDUP_NEAR_CAMERA:-0}"
     --dedup-large-area-ratio "${YOLO_DEDUP_LARGE_AREA_RATIO:-0.12}"
     --dedup-merge "${YOLO_DEDUP_MERGE:-1}"
+    --mapping "${YOLO_MAPPING:-rank}"
     --schedule "${YOLO_SCHEDULE:-static}"
     --comm-mode "${YOLO_COMM_MODE:-blocking}"
     --chunk-size "${YOLO_CHUNK_SIZE:-1}"
@@ -62,25 +63,37 @@ for np in ${YOLO_P_LIST:-1 2 3}; do
   echo "COMMAND: ${mpi[*]} ${rank_cmd[*]}"
   "${mpi[@]}" "${rank_cmd[@]}"
   pull_rank_output_if_needed "$out"
-  read -r with without tile schedule comm_mode < <(python3 - "$out/summary.csv" <<'PY'
+  read -r with without tile mapping schedule comm_mode < <(python3 - "$out/summary.csv" <<'PY'
 import csv, sys
 with open(sys.argv[1], newline="", encoding="utf-8") as f:
     row = next(csv.DictReader(f))
-print(row["total_ms_with_comm"], row["total_ms_without_comm"], row["tile_grid"], row["schedule"], row.get("comm_mode", "blocking"))
+print(
+    row["total_ms_with_comm"],
+    row["total_ms_without_comm"],
+    row["tile_grid"],
+    row.get("mapping", "rank"),
+    row["schedule"],
+    row.get("comm_mode", "blocking"),
+)
 PY
 )
   if [[ -z "$baseline_with" ]]; then
     baseline_with="$with"
     baseline_without="$without"
   fi
-  python3 - "$csv" "$np" "$with" "$without" "$baseline_with" "$baseline_without" "$tile" "$schedule" "$comm_mode" <<'PY'
+  python3 - "$csv" "$np" "$with" "$without" "$baseline_with" "$baseline_without" "$tile" "$mapping" "$schedule" "$comm_mode" <<'PY'
 import csv, sys
-path, p, tw, tc, bw, bc, tile, schedule, comm_mode = sys.argv[1:]
+path, p, tw, tc, bw, bc, tile, mapping, schedule, comm_mode = sys.argv[1:]
 p = int(p); tw = float(tw); tc = float(tc); bw = float(bw); bc = float(bc)
 sw = bw / tw if tw else 0.0
 sc = bc / tc if tc else 0.0
 with open(path, "a", newline="", encoding="utf-8") as f:
-    csv.writer(f).writerow([p, tw, tc, sw, sc, sw / p if p else 0.0, sc / p if p else 0.0, tile, schedule, comm_mode])
+    csv.writer(f).writerow([
+        p, tw, tc, sw, sc,
+        sw / p if p else 0.0,
+        sc / p if p else 0.0,
+        tile, mapping, schedule, comm_mode,
+    ])
 PY
 done
 

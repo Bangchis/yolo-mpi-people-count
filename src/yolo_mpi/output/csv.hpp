@@ -167,8 +167,8 @@ static void write_summary(
     std::ofstream f(path);
     f << "run_id,language,detector,model,device,imgsz,frames,tile_grid,num_tasks,overlap,"
       << "tile_owner_filter,dedup_ios,dedup_center,dedup_axis_overlap,dedup_gap,"
-      << "dedup_near_camera,dedup_large_area_ratio,dedup_merge,schedule,chunk_size,"
-      << "comm_mode,stream_batch_tasks,stream_max_pending,master_compute,world_size,"
+      << "dedup_near_camera,dedup_large_area_ratio,dedup_merge,mapping,schedule,"
+      << "chunk_size,comm_mode,stream_batch_tasks,stream_max_pending,master_compute,world_size,"
       << "video_width,video_height,total_ms_with_comm,"
       << "total_ms_without_comm,compute_ms_max,compute_ms_avg,comm_ms_total,io_ms_total,"
       << "yolo_ms_total,idle_ms_total,load_imbalance,avg_count,correctness_pass\n";
@@ -180,8 +180,9 @@ static void write_summary(
       << cfg.overlap << "," << (cfg.tile_owner_filter ? 1 : 0) << "," << cfg.duplicate_ios << ","
       << cfg.duplicate_center << "," << cfg.duplicate_axis_overlap << "," << cfg.duplicate_gap << ","
       << (cfg.duplicate_near_camera ? 1 : 0) << "," << cfg.duplicate_large_area_ratio << ","
-      << (cfg.duplicate_merge ? 1 : 0) << "," << cfg.schedule << "," << cfg.chunk_size << ","
-      << cfg.comm_mode << "," << cfg.stream_batch_tasks << "," << cfg.stream_max_pending << ","
+      << (cfg.duplicate_merge ? 1 : 0) << "," << cfg.mapping << "," << cfg.schedule << ","
+      << cfg.chunk_size << "," << cfg.comm_mode << "," << cfg.stream_batch_tasks << ","
+      << cfg.stream_max_pending << ","
       << (cfg.master_compute ? 1 : 0) << "," << world_size << ","
       << cfg.width << "," << cfg.height << "," << total_ms << "," << compute_max << ","
       << compute_max << "," << (compute_sum / std::max<size_t>(1, metrics.size())) << ","

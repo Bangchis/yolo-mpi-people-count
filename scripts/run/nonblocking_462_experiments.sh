@@ -7,6 +7,7 @@ timestamp="$(date +%Y%m%d-%H%M%S)"
 run_dir="${YOLO_NB_RUN_DIR:-results/nonblocking_462_${timestamp}}"
 hostfile="${YOLO_NB_HOSTFILE:-configs/hosts_macos_core_weighted_12_4_6_2}"
 np="${YOLO_NB_NP:-12}"
+cluster_use_hostfile="${YOLO_NB_USE_HOSTFILE:-1}"
 
 mini_source="${YOLO_NB_MINI_SOURCE:-data/mot17-mini/MOT17-02-SDP-300_960x540.mp4}"
 mini_gt="${YOLO_NB_MINI_GT:-data/mot17-mini/MOT17-02-SDP-300_counts.csv}"
@@ -49,6 +50,7 @@ export YOLO_DEDUP_GAP="${YOLO_DEDUP_GAP:-0.08}"
 export YOLO_DEDUP_NEAR_CAMERA="${YOLO_DEDUP_NEAR_CAMERA:-0}"
 export YOLO_DEDUP_LARGE_AREA_RATIO="${YOLO_DEDUP_LARGE_AREA_RATIO:-0.12}"
 export YOLO_DEDUP_MERGE="${YOLO_DEDUP_MERGE:-1}"
+export YOLO_MAPPING="${YOLO_MAPPING:-weighted-node}"
 export YOLO_SCHEDULE=static
 export YOLO_MASTER_COMPUTE="${YOLO_MASTER_COMPUTE:-1}"
 export YOLO_CHUNK_SIZE="${YOLO_CHUNK_SIZE:-1}"
@@ -122,6 +124,7 @@ accuracy = read_one(mode_dir / "accuracy" / "accuracy.csv")
 
 row = {
     "comm_mode": mode,
+    "mapping": granularity_summary.get("mapping", ""),
     "correctness_pass": correctness["correctness_pass"],
     "accuracy_mae": accuracy["mae"],
     "find_n_600_s": f"{seconds(find_600['total_ms_with_comm']):.6f}",
@@ -158,6 +161,7 @@ placement=master:4,node1:6,node2:2
 np=$np
 modes=$modes
 schedule=static
+mapping=$YOLO_MAPPING
 stream_batch_tasks=$YOLO_STREAM_BATCH_TASKS
 stream_max_pending=$YOLO_STREAM_MAX_PENDING
 device=$YOLO_DEVICE
@@ -173,6 +177,7 @@ granularity_frames=$granularity_frames
 granularity_grids=$granularity_grids
 speedup_frames=$speedup_frames
 p_list=$p_list
+cluster_use_hostfile=$cluster_use_hostfile
 EOF
 
 echo "NONBLOCKING_462_RUN_DIR=$run_dir"
@@ -192,7 +197,7 @@ for mode in $modes; do
   serial_dir="$mode_dir/correctness/serial"
   mpi_dir="$mode_dir/correctness/mpi"
   run_perf_case "$serial_dir" "$mini_source" "$correctness_frames" 1 0 "$tile_grid" "$mode"
-  run_perf_case "$mpi_dir" "$mini_source" "$correctness_frames" "$np" 1 "$tile_grid" "$mode"
+  run_perf_case "$mpi_dir" "$mini_source" "$correctness_frames" "$np" "$cluster_use_hostfile" "$tile_grid" "$mode"
   "$python_bin" scripts/report/compare_frame_counts.py \
     --serial "$serial_dir/frame_counts.csv" \
     --mpi "$mpi_dir/frame_counts.csv" \
@@ -201,7 +206,7 @@ for mode in $modes; do
 
   echo "MODE=$mode PHASE 2: accuracy"
   accuracy_pred="$mode_dir/accuracy/prediction"
-  run_perf_case "$accuracy_pred" "$mini_source" "$accuracy_frames" "$np" 1 "$tile_grid" "$mode"
+  run_perf_case "$accuracy_pred" "$mini_source" "$accuracy_frames" "$np" "$cluster_use_hostfile" "$tile_grid" "$mode"
   "$python_bin" scripts/report/evaluate_count_accuracy.py \
     --predicted "$accuracy_pred/frame_counts.csv" \
     --ground-truth "$mini_gt" \
@@ -215,7 +220,7 @@ for mode in $modes; do
   YOLO_SOURCE="$find_source" \
   YOLO_RUN_DIR="$mode_dir/find_N" \
   YOLO_NP="$np" \
-  YOLO_USE_HOSTFILE=1 \
+  YOLO_USE_HOSTFILE="$cluster_use_hostfile" \
   YOLO_HOSTFILE="$hostfile" \
   YOLO_TILE_GRID="$tile_grid" \
   YOLO_FIND_FRAME_LIST="$find_frame_list" \
@@ -230,7 +235,7 @@ for mode in $modes; do
   overview_initialized=0
   for grid in $granularity_grids; do
     grid_dir="$mode_dir/granularity/grid_${grid}"
-    run_perf_case "$grid_dir" "$granularity_source" "$granularity_frames" "$np" 1 "$grid" "$mode"
+    run_perf_case "$grid_dir" "$granularity_source" "$granularity_frames" "$np" "$cluster_use_hostfile" "$grid" "$mode"
     "$python_bin" scripts/report/plots/plot_rank_metrics.py \
       --input "$grid_dir/rank_metrics.csv" \
       --output "$grid_dir/rank_metrics_stacked.png" \
@@ -250,7 +255,7 @@ for mode in $modes; do
   echo "MODE=$mode PHASE 5: speedup"
   YOLO_SOURCE="$speedup_source" \
   YOLO_RUN_DIR="$mode_dir/speedup" \
-  YOLO_USE_HOSTFILE=1 \
+  YOLO_USE_HOSTFILE="$cluster_use_hostfile" \
   YOLO_SWEEP_HOSTFILE="$hostfile" \
   YOLO_TILE_GRID="$tile_grid" \
   YOLO_SPEEDUP_FRAMES="$speedup_frames" \

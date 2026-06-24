@@ -48,6 +48,8 @@ static Config parse_args(int argc, char** argv) {
             cfg.duplicate_merge = read_bool_arg(need_value(key));
 
         // Workload size, MPI schedule, and output controls.
+        } else if (key == "--mapping") {
+            cfg.mapping = need_value(key);
         } else if (key == "--schedule") {
             cfg.schedule = need_value(key);
         } else if (key == "--comm-mode") {
@@ -123,7 +125,8 @@ static Config parse_args(int argc, char** argv) {
         } else if (key == "--help") {
             std::cout
                 << "Usage: yolo_mpi_cpp [options]\n"
-                << "  --frames N --tile-grid COLSxROWS --schedule static\n"
+                << "  --frames N --tile-grid COLSxROWS --mapping rank|weighted-node\n"
+                << "  --schedule static\n"
                 << "  --comm-mode blocking|nonblocking|streaming controls result communication\n"
                 << "  --stream-batch-tasks N controls streaming batch size\n"
                 << "  --master-compute is kept for old scripts but static scheduling ignores it\n"
@@ -145,6 +148,9 @@ static Config parse_args(int argc, char** argv) {
     }
     if (cfg.schedule != "static") {
         throw std::runtime_error("--schedule must be static");
+    }
+    if (cfg.mapping != "rank" && cfg.mapping != "weighted-node") {
+        throw std::runtime_error("--mapping must be rank or weighted-node");
     }
     if (cfg.comm_mode != "blocking" && cfg.comm_mode != "nonblocking" && cfg.comm_mode != "streaming") {
         throw std::runtime_error("--comm-mode must be blocking, nonblocking, or streaming");

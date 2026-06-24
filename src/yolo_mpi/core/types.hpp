@@ -47,6 +47,7 @@ struct Config {
     bool duplicate_near_camera = false;
     double duplicate_large_area_ratio = 0.12;
     bool duplicate_merge = true;
+    std::string mapping = "rank";
     std::string schedule = "static";
     std::string comm_mode = "blocking";
     int chunk_size = 1;

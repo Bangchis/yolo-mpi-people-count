@@ -32,6 +32,7 @@ cpp_cmd=(build/yolo_mpi_cpp
   --dedup-near-camera "${YOLO_DEDUP_NEAR_CAMERA:-0}"
   --dedup-large-area-ratio "${YOLO_DEDUP_LARGE_AREA_RATIO:-0.12}"
   --dedup-merge "${YOLO_DEDUP_MERGE:-1}"
+  --mapping "${YOLO_MAPPING:-rank}"
   --schedule "${YOLO_PERF_SCHEDULE:-static}"
   --comm-mode "${YOLO_COMM_MODE:-blocking}"
   --chunk-size "${YOLO_CHUNK_SIZE:-1}"
