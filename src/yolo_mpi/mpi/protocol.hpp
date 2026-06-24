@@ -1,35 +1,5 @@
-// Small MPI protocol helpers used by offline and live modes.
-// Task messages are fixed-size ints; result messages are length-prefixed text.
-
-// Send one fixed-size Task from rank 0 to a worker rank.
-static void send_task(const Task& task, int dest) {
-    // Fixed int array keeps task messages simple and avoids struct layout issues.
-    int raw[7] = {task.task_id, task.frame_id, task.tile_id, task.x1, task.y1, task.x2, task.y2};
-    MPI_Send(raw, 7, MPI_INT, dest, 10, MPI_COMM_WORLD);
-}
-
-// Receive one Task on a worker; the tag tells whether it is work or stop.
-static Task recv_task(int* source_tag = nullptr) {
-    MPI_Status status;
-    int raw[7] = {};
-
-    MPI_Recv(raw, 7, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-
-    if (source_tag) {
-        *source_tag = status.MPI_TAG;
-    }
-
-    Task task;
-    // Rebuild the Task object from the same int order used in send_task().
-    task.task_id = raw[0];
-    task.frame_id = raw[1];
-    task.tile_id = raw[2];
-    task.x1 = raw[3];
-    task.y1 = raw[4];
-    task.x2 = raw[5];
-    task.y2 = raw[6];
-    return task;
-}
+// Small MPI protocol helpers used by live mode.
+// Result and camera-tile messages are length-prefixed text.
 
 // Send arbitrary text payload through MPI using a length prefix.
 static void send_string(const std::string& payload, int dest, int tag) {

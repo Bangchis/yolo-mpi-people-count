@@ -18,9 +18,9 @@
 
 This project studies the parallelization of video-based people counting on a small physical cluster. A pretrained YOLO detector is used as the computationally intensive component, while the main contribution of the project is the design, implementation, and evaluation of a parallel inference pipeline using C++17 and OpenMPI. The system runs on three MacBook machines connected through a local area network. The benchmark mode uses CPU execution to align with the process-oriented requirements of the course, while a live-camera mode is kept as an application demonstration.
 
-The video stream is decomposed along both time and image space. Frames provide independent temporal work units, and each frame may be divided into image regions to increase task granularity. These tasks are then mapped to MPI processes using static scheduling or a dynamic master-worker strategy. The master process gathers detector outputs, remaps bounding boxes to the original frame, removes duplicates across region boundaries, and produces frame-level people counts. This design exposes the main issues of parallel programming: decomposition, mapping, communication, load balancing, granularity, and speedup.
+The video stream is decomposed along both time and image space. Frames provide independent temporal work units, and each frame may be divided into image regions to increase task granularity. These tasks are then mapped to MPI processes using static block-cyclic scheduling. The master process gathers detector outputs, remaps bounding boxes to the original frame, removes duplicates across region boundaries, and produces frame-level people counts. This design exposes the main issues of parallel programming: decomposition, mapping, communication, load balancing, granularity, and speedup.
 
-Experiments were conducted on MOT17-derived video data. The parallel implementation was first validated against a serial baseline, producing identical frame counts in the correctness test. The detector output was also compared against MOT17 ground truth counts to separate model accuracy from parallel correctness. A long-sequence benchmark identified a 600-frame workload whose wall-clock runtime was 123.667 seconds on twelve processes, satisfying the required two-to-three-minute input-size criterion. For a 1200-frame workload, the system achieved a wall-clock speedup of 1.939x at twelve processes. Additional experiments investigated granularity, scheduler behavior, weighted process placement, and non-blocking communication. The best weighted placement reduced the idle-gap indicator from 0.466 to 0.235, satisfying the twenty-five percent load-balance criterion. The final non-blocking static gather experiment with the same four-six-two placement achieved 3.342x wall-clock speedup on the 1200-frame workload.
+Experiments were conducted on MOT17-derived video data. The parallel implementation was first validated against a serial baseline, producing identical frame counts in the correctness test. The detector output was also compared against MOT17 ground truth counts to separate model accuracy from parallel correctness. A long-sequence benchmark identified a 600-frame workload whose wall-clock runtime was 123.667 seconds on twelve processes, satisfying the required two-to-three-minute input-size criterion. For a 1200-frame workload, the system achieved a wall-clock speedup of 1.939x at twelve processes. Additional experiments investigated granularity, weighted process placement, and non-blocking communication. The best weighted placement reduced the idle-gap indicator from 0.466 to 0.235, satisfying the twenty-five percent load-balance criterion. The final non-blocking static gather experiment with the same four-six-two placement achieved 3.342x wall-clock speedup on the 1200-frame workload.
 
 **Keywords:** parallel computing, OpenMPI, object detection, YOLO, people counting, load balancing, speedup, distributed video processing.
 
@@ -44,10 +44,9 @@ Experiments were conducted on MOT17-derived video data. The parallel implementat
 2. Runtime as input size increases
 3. Granularity overview
 4. Per-process timing for the four-by-three configuration
-5. Static and dynamic scheduling comparison
-6. Speedup on the twelve-hundred-frame workload
-7. Weighted static placement comparison
-8. Non-blocking communication overview
+5. Speedup on the twelve-hundred-frame workload
+6. Weighted static placement comparison
+7. Non-blocking communication overview
 
 ## List of Tables
 
@@ -58,12 +57,11 @@ Experiments were conducted on MOT17-derived video data. The parallel implementat
 5. Compact input-size trend
 6. Long-sequence input-size trend
 7. Granularity and load balance
-8. Scheduler comparison
-9. Speedup evaluation
-10. Weighted static placement
-11. Non-blocking communication
-12. Per-host behavior under weighted placement
-13. Assignment requirement mapping
+8. Speedup evaluation
+9. Weighted static placement
+10. Non-blocking communication
+11. Per-host behavior under weighted placement
+12. Assignment requirement mapping
 
 ## 1. Introduction
 
@@ -103,17 +101,15 @@ Thus, the decomposition is a trade-off. Coarse tasks reduce communication but ma
 
 ### 3.3 Mapping Technique
 
-The two-dimensional structure of video frames and image regions is mapped into a one-dimensional list of independent tasks. This one-dimensional flattened mapping simplifies process assignment. The implementation supports two scheduling strategies.
+The two-dimensional structure of video frames and image regions is mapped into a one-dimensional list of independent tasks. This one-dimensional flattened mapping simplifies process assignment. The final implementation uses static block-cyclic scheduling.
 
 In static scheduling, tasks are assigned in a deterministic block-cyclic manner before execution. This approach has low scheduling overhead and little communication during computation. However, it assumes that tasks have similar costs. If some processes receive harder regions or slower frames, the entire program must wait for them.
-
-In dynamic scheduling, the master process maintains a task queue. Worker processes request work, return results, and receive more work until the queue is empty. The master may also perform computation so that it does not remain only a coordinator. Dynamic scheduling is more flexible for irregular workloads and heterogeneous machines, but it introduces additional communication and coordination overhead.
 
 The project also includes a weighted process placement experiment. Since the machines are not identical, a stronger machine can be assigned more processes than a weaker one. This is not a replacement for the standard speedup experiment; it is an additional study showing how mapping can be adapted to a heterogeneous physical cluster.
 
 ### 3.4 Communication Strategy and Topology
 
-The communication topology is a master-worker star topology. The master is responsible for task distribution, result collection, and final merging. Workers receive task descriptions, perform local detection, and send back detection results and timing metrics.
+The communication topology is a master-worker star topology. All processes derive the same ordered task list, so the master does not need to send every offline task at runtime. Each process independently selects its static subset, performs local detection, and sends detection results and timing metrics back to the master for final merging.
 
 The original communication strategy uses blocking communication for the main send and receive operations. The optimized static variant also includes a non-blocking result-gather stage. In that version, worker ranks send payload sizes and serialized detection results using non-blocking sends, while the master posts non-blocking receives and waits for all results together. The gathered information includes both detection boxes and per-process timing data. The amount of data communicated is kept moderate because the video files and model files are synchronized to each machine before benchmarking. Therefore, the cluster mostly exchanges task metadata and detection results rather than raw video frames.
 
@@ -121,7 +117,7 @@ The master-worker design is suitable for this problem because duplicate removal 
 
 ### 3.5 Load Balancing Considerations
 
-Load balancing is addressed at three levels. First, dynamic scheduling allows faster processes to receive additional work. Second, the project evaluates different region grids to control task granularity. Third, weighted mapping is tested to account for the different computational capacities of the machines.
+Load balancing is addressed at two levels. First, the project evaluates different region grids to control task granularity. Second, weighted mapping is tested to account for the different computational capacities of the machines.
 
 The ideal system would keep all processes computing for most of the runtime. In practice, idle time can appear because tasks are uneven, the network is not free, the machines are heterogeneous, and the master must perform result merging. The report therefore measures computation time, communication time, and idle time for each process. This per-process view is more informative than a single total runtime.
 
@@ -139,15 +135,9 @@ In static scheduling, all tasks are assigned before execution. Each process inde
 
 The main advantage of static scheduling is simplicity. It has lower coordination overhead because the master does not need to repeatedly dispatch work during execution. The main disadvantage is sensitivity to imbalance. If one process receives more expensive tasks, all other processes must wait at the end.
 
-### 4.3 Dynamic Scheduling
+### 4.3 Parallel Algorithm Pseudo-code
 
-In dynamic scheduling, the master initially sends work to available workers. Whenever a worker finishes, it sends results back and receives another task if any remain. The master can also process tasks locally, which makes the coordinator contribute computational work rather than only waiting for messages.
-
-This strategy is more appropriate for irregular video inference. Some image regions contain many people, while others contain mostly background. Some machines are faster than others. Dynamic scheduling adapts to these variations by assigning more tasks to processes that finish earlier. The cost of this flexibility is more frequent communication and scheduling overhead.
-
-### 4.4 Parallel Algorithm Pseudo-code
-
-The following pseudo-code is written at the algorithmic level rather than as source code. It summarizes the behavior of the two scheduling strategies used in the project.
+The following pseudo-code is written at the algorithmic level rather than as source code. It summarizes the final static scheduling algorithm used in the project.
 
 **Algorithm 1. Static parallel people-counting pipeline**
 
@@ -160,20 +150,9 @@ The following pseudo-code is written at the algorithmic level rather than as sou
 7. The master removes duplicated detections across neighboring regions.
 8. The master computes the people count for each frame and writes the final experimental metrics.
 
-**Algorithm 2. Dynamic master-worker people-counting pipeline**
+The static algorithm intentionally avoids repeated task-dispatch traffic. This makes the implementation easier to explain, easier to reproduce, and better suited to the final weighted-placement and non-blocking communication experiments.
 
-1. The master prepares the same frame-and-region task list.
-2. The master sends initial tasks to available worker processes.
-3. A worker receives a task, performs local detector inference, and sends detections and timing measurements back to the master.
-4. Whenever a worker returns a result, the master either assigns a new task or sends a termination message if no task remains.
-5. If enabled, the master also processes tasks locally while waiting for worker results.
-6. When all tasks are complete, the master gathers the final set of detections.
-7. The master performs coordinate remapping, duplicate removal, and frame-level counting.
-8. The master writes the output counts, detection records, and per-process timing metrics.
-
-The two algorithms share the same detector and post-processing stages. Their main difference is task assignment. Static scheduling reduces dispatch overhead, while dynamic scheduling is more adaptive to uneven task costs and heterogeneous machines.
-
-### 4.5 Bounding-Box Merging and Duplicate Removal
+### 4.4 Bounding-Box Merging and Duplicate Removal
 
 Spatial decomposition creates a post-processing challenge. A person near the boundary between two regions may be detected in both regions. Without global filtering, the same person could be counted multiple times. The master therefore performs a sequence of merging operations.
 
@@ -181,7 +160,7 @@ First, detections produced in region coordinates are transformed back into full-
 
 This post-processing stage is essential for correctness. The decomposition increases parallelism, but the final answer must still correspond to people in the original frame, not people separately counted in each region.
 
-### 4.6 Timing Metrics
+### 4.5 Timing Metrics
 
 Each process records timing information in three categories: computation, communication, and idle or waiting time. Computation time represents local detector execution and local task processing. Communication time represents the exchange of task assignments, detections, and metrics. Idle time represents waiting caused by imbalance or synchronization.
 
@@ -215,7 +194,7 @@ Table 2 summarizes the main configuration used for the reported CPU experiments.
 |---|---|
 | Detector | Pretrained YOLO |
 | Benchmark device | CPU |
-| Main scheduler | Static scheduling for optimized benchmark; dynamic scheduling for comparison |
+| Main scheduler | Static block-cyclic scheduling |
 | Main process count | Twelve processes |
 | Main region grid | Four by three regions |
 | Long-run region grid | Five by four regions |
@@ -246,19 +225,15 @@ The granularity experiment varies the number of image regions per frame. The tes
 
 The assignment specifies that if the idle time between any two processes differs by more than twenty-five percent, the system should be considered insufficiently balanced. The report explicitly applies this criterion. Initial equal placement does not satisfy the criterion, so a weighted static placement is also tested on the heterogeneous cluster.
 
-### 6.5 Scheduler Comparison
-
-Static scheduling and dynamic scheduling are compared under the same input setting. Static scheduling has less coordination overhead, while dynamic scheduling adapts better to uneven tasks and heterogeneous machines. The comparison is included to show that the choice of scheduler is not obvious: dynamic scheduling is more general, but it is not always faster for small inputs.
-
-### 6.6 Speedup Evaluation
+### 6.5 Speedup Evaluation
 
 After selecting the required input size, the speedup experiment uses a workload twice as large. The process count is varied across one, two, four, eight, and twelve processes. Wall-clock speedup is computed from the ratio between the one-process runtime and the multi-process runtime. A separate computation-only trend is also shown to separate useful work from communication and coordination costs.
 
-### 6.7 Weighted Mapping on a Heterogeneous Cluster
+### 6.6 Weighted Mapping on a Heterogeneous Cluster
 
 The cluster machines are not identical. A weighted mapping experiment assigns more processes to the stronger machine and fewer processes to the weaker one. This experiment is not the main course benchmark, but it provides additional insight into processor assignment on heterogeneous physical machines.
 
-### 6.8 Non-Blocking Communication
+### 6.7 Non-Blocking Communication
 
 After the static weighted placement is selected, the final result-gather stage is also tested with non-blocking MPI communication. This experiment keeps the same task decomposition, detector, and four-six-two process placement, but replaces the blocking static gather with `MPI_Isend`, `MPI_Irecv`, and `MPI_Waitall`. The goal is to evaluate whether a non-blocking communication style can reduce result-collection overhead while preserving the same serial-versus-MPI output.
 
@@ -326,24 +301,11 @@ Table 7 summarizes the granularity experiment. The compact dataset does not achi
 
 The full-frame setting is too coarse to expose much spatial parallelism. Finer regions create more tasks, which gives the scheduler more opportunities to distribute work. However, finer regions also create more intermediate detections and more communication. The four-by-three setting is a reasonable demonstration configuration, while the five-by-four setting is more suitable for the longer input-size and speedup experiments.
 
-The balance result is not ideal. Rather than hiding this, the experiment makes the limitation visible. The likely causes are heterogeneous machines, short compact input, detector-worker overhead, and master-side merging. This is a realistic outcome in distributed-memory video processing and motivates the scheduler and weighted-mapping experiments.
+The balance result is not ideal. Rather than hiding this, the experiment makes the limitation visible. The likely causes are heterogeneous machines, short compact input, detector-worker overhead, and master-side merging. This is a realistic outcome in distributed-memory video processing and motivates the weighted-mapping experiment.
 
-### 7.5 Static and Dynamic Scheduling
+### 7.5 Speedup on a Workload Twice as Large
 
-Table 8 compares static and dynamic scheduling on the same 600-frame input. The experiment uses twelve processes and a five-by-four region grid.
-
-| Scheduler | Processes | Frames | Region grid | Runtime with communication (s) | Runtime without communication (s) | Load imbalance | Idle-gap indicator | Balance result |
-|---|---:|---:|---|---:|---:|---:|---:|---|
-| Static | 12 | 600 | Five by four | 40.619 | 36.522 | 1.202 | 0.466 | Not balanced |
-| Dynamic | 12 | 600 | Five by four | 102.316 | 96.959 | 2.778 | 0.837 | Not balanced |
-
-![Static and dynamic scheduling comparison](../results/extra_report_live_20260623-185430/scheduler_N600/figures/scheduler_comparison.png)
-
-Static scheduling is much faster in this experiment. Dynamic scheduling is more flexible, but it creates frequent task-dispatch and result-collection traffic at the master. For this tiled YOLO workload, the dynamic overhead is larger than the load-balancing benefit. This is an important observation: a more flexible scheduler is not automatically faster. Static scheduling is therefore selected for the final weighted-placement load-balance experiment.
-
-### 7.6 Speedup on a Workload Twice as Large
-
-After selecting the six-hundred-frame workload, the speedup experiment uses a twelve-hundred-frame input. Table 9 shows the runtime and speedup trend.
+After selecting the six-hundred-frame workload, the speedup experiment uses a twelve-hundred-frame input. Table 8 shows the runtime and speedup trend.
 
 | Processes | Runtime with communication (s) | Runtime without communication (s) | Wall-clock speedup | Efficiency |
 |---:|---:|---:|---:|---:|
@@ -359,9 +321,9 @@ Speedup improves as the number of processes increases, but it is not linear. At 
 
 This result is reasonable for a real cluster running a mixed workload. Pure numerical kernels often scale better because they have less irregular post-processing and smaller coordination overhead. In contrast, this project combines detector inference, video processing, distributed communication, and global merging.
 
-### 7.7 Weighted Mapping on Heterogeneous Machines
+### 7.6 Weighted Mapping on Heterogeneous Machines
 
-Table 10 shows the weighted static placement experiment on the 600-frame workload. The cluster is heterogeneous: the master is a MacBook Air M4, node1 is a MacBook Pro M4, and node2 is a MacBook Air M2. Equal placement assigns four ranks to each machine. Weighted placement assigns more ranks to the stronger machine and fewer ranks to the weaker machine.
+Table 9 shows the weighted static placement experiment on the 600-frame workload. The cluster is heterogeneous: the master is a MacBook Air M4, node1 is a MacBook Pro M4, and node2 is a MacBook Air M2. Equal placement assigns four ranks to each machine. Weighted placement assigns more ranks to the stronger machine and fewer ranks to the weaker machine.
 
 | Placement | Process distribution | Runtime with communication (s) | Runtime without communication (s) | Idle-gap indicator | Balance result |
 |---|---|---:|---:|---:|---|
@@ -369,7 +331,7 @@ Table 10 shows the weighted static placement experiment on the 600-frame workloa
 | Weighted placement | Master 3, node1 6, node2 3 | 34.712 | 30.339 | 0.371 | Not balanced |
 | Weighted placement | Master 4, node1 6, node2 2 | 29.581 | 27.484 | 0.235 | Balanced |
 
-Table 11 summarizes the per-host behavior of the best placement.
+Table 10 summarizes the per-host behavior of the best placement.
 
 | Host | Machine type | Assigned ranks | Approximate per-rank compute time |
 |---|---|---:|---:|
@@ -381,7 +343,7 @@ Table 11 summarizes the per-host behavior of the best placement.
 
 The final four-six-two placement reduces runtime and satisfies the twenty-five percent load-balance criterion. The experiment shows why equal process placement is not appropriate on a heterogeneous physical cluster. Equal placement gives every machine the same number of ranks, but the machines do not have the same performance. Weighted placement uses measured behavior to assign more work to the stronger node and less work to the weaker node.
 
-### 7.8 Non-Blocking Communication Experiment
+### 7.7 Non-Blocking Communication Experiment
 
 Table 11 shows the optimized static non-blocking experiment with the four-six-two placement. The correctness test still passes, so the communication change does not alter the final frame counts.
 
@@ -399,13 +361,13 @@ Table 11 shows the optimized static non-blocking experiment with the four-six-tw
 
 The non-blocking variant should be interpreted as a communication optimization of the static pipeline. It does not split YOLO inference internally and it does not fully overlap detector computation with communication. Each rank still finishes its assigned tile tasks first. The improvement comes from collecting variable-length serialized results with non-blocking operations at the final aggregation stage.
 
-### 7.9 Summary of Experimental Findings
+### 7.8 Summary of Experimental Findings
 
 The experiments support five main conclusions. First, the MPI implementation preserves the serial pipeline output in the correctness test. Second, the detector accuracy on MOT17 is limited by the pretrained model and the difficulty of crowded scenes, not by MPI parallelization. Third, the selected six-hundred-frame input satisfies the required runtime interval, and the twelve-hundred-frame workload shows measurable speedup. Fourth, granularity and mapping strongly affect performance. Equal placement fails the load-balance criterion, while the measured weighted placement satisfies it and reduces runtime. Fifth, non-blocking result collection further improves the optimized static weighted configuration.
 
 The results also show that communication and synchronization are central issues in this project. The algorithm contains a sequential merging component at the master, and distributed execution introduces coordination overhead. These factors limit speedup, but they are precisely the factors that make the project relevant to parallel computing rather than merely object detection.
 
-### 7.10 Live-Camera Demonstration
+### 7.9 Live-Camera Demonstration
 
 The project includes a live-camera mode in which the master captures video from its camera, distributes computation to the cluster, and displays the detected people count in real time. This mode demonstrates the application value of the system. However, the formal benchmark results in this report use offline MOT17-derived videos and CPU execution to keep the performance evaluation reproducible and aligned with MPI process-level requirements.
 
@@ -419,10 +381,10 @@ Table 12 maps the assignment requirements to the project outcomes.
 | No cloud servers | All experiments were conducted on physical machines owned by the group |
 | Parallelization level | Task-level parallelism |
 | Decomposition method | Hybrid temporal-spatial decomposition |
-| Mapping technique | One-dimensional flattened task mapping with static, dynamic, and weighted variants |
+| Mapping technique | One-dimensional flattened task mapping with static and weighted variants |
 | Communication strategy | Master-worker star topology with blocking and non-blocking MPI result collection |
-| Load balancing | Granularity study, scheduler comparison, and weighted process placement satisfying the twenty-five percent criterion |
-| Parallel algorithm description | Static, dynamic, weighted, and non-blocking variants are described in the methodology section |
+| Load balancing | Granularity study and weighted process placement satisfying the twenty-five percent criterion |
+| Parallel algorithm description | Static, weighted, and non-blocking variants are described in the methodology section |
 | Correctness | Serial and MPI outputs match in the correctness experiment |
 | Input-size selection | A six-hundred-frame workload runs in 123.667 seconds |
 | Granularity evaluation | Multiple region grids are evaluated with per-process timing charts |
@@ -434,7 +396,7 @@ Table 12 maps the assignment requirements to the project outcomes.
 
 The first limitation is detector accuracy. The pretrained model undercounts crowded MOT17 scenes. Fine-tuning on pedestrian and crowd data or using a larger detector could improve application accuracy, although it would also increase runtime.
 
-The second limitation is communication overhead. Dynamic scheduling is more flexible, but frequent task dispatch and result collection can become expensive. The current non-blocking variant optimizes the final static gather, but it does not yet overlap YOLO inference itself with communication. A future version could batch multiple tasks per dispatch or overlap communication with local post-processing more aggressively.
+The second limitation is communication overhead. The current non-blocking variant optimizes the final static gather, but it does not yet overlap YOLO inference itself with communication. A future version could overlap result communication with local post-processing more aggressively or decentralize part of the merging stage.
 
 The third limitation is duplicate handling. Spatial decomposition requires careful merging near region boundaries. The current global suppression and ownership rules reduce duplicates, but difficult camera-close cases can still create false positives or false merges. A temporal tracker such as ByteTrack or DeepSORT could stabilize counts across frames.
 
@@ -444,9 +406,9 @@ Finally, the experiments were conducted on a small three-machine cluster. This i
 
 ## 10. Conclusion
 
-This project implemented and evaluated a parallel people-counting pipeline using YOLO and C++17/OpenMPI on a three-machine physical cluster. The algorithm uses task-level parallelism with hybrid temporal-spatial decomposition. Static scheduling, dynamic scheduling, weighted process placement, and non-blocking result collection were implemented and experimentally studied.
+This project implemented and evaluated a parallel people-counting pipeline using YOLO and C++17/OpenMPI on a three-machine physical cluster. The algorithm uses task-level parallelism with hybrid temporal-spatial decomposition. Static scheduling, weighted process placement, and non-blocking result collection were implemented and experimentally studied.
 
-The parallel implementation passed the serial-versus-MPI correctness test. A 600-frame workload was selected because its twelve-process runtime was 123.667 seconds, satisfying the required two-to-three-minute range. On a 1200-frame workload, the initial system achieved a wall-clock speedup of 1.939x at twelve processes. The final optimized static non-blocking configuration achieved 3.342x wall-clock speedup. The granularity and scheduler experiments showed that task size, communication overhead, and hardware heterogeneity strongly influence performance. The final weighted static placement reduced the idle-gap indicator to 0.235, satisfying the load-balance criterion.
+The parallel implementation passed the serial-versus-MPI correctness test. A 600-frame workload was selected because its twelve-process runtime was 123.667 seconds, satisfying the required two-to-three-minute range. On a 1200-frame workload, the initial system achieved a wall-clock speedup of 1.939x at twelve processes. The final optimized static non-blocking configuration achieved 3.342x wall-clock speedup. The granularity and weighted-placement experiments showed that task size, communication overhead, and hardware heterogeneity strongly influence performance. The final weighted static placement reduced the idle-gap indicator to 0.235, satisfying the load-balance criterion.
 
 Although the speedup is not linear, the project demonstrates the central concepts of parallel programming: decomposition, mapping, communication, load balancing, correctness, granularity, and performance evaluation. The live-camera mode further shows that the system can be used as an interactive distributed vision application, while the formal CPU benchmarks provide reproducible evidence for the course report.
 
@@ -460,4 +422,4 @@ Although the speedup is not linear, the project demonstrates the central concept
 
 ## Appendix A. Presentation Notes
 
-If asked about the level of parallelism, the answer is task-level parallelism. If asked about decomposition, the answer is hybrid temporal-spatial decomposition. If asked about mapping, the answer is a one-dimensional flattened mapping with static, dynamic, and weighted variants. If asked about communication topology, the answer is master-worker star topology. If asked why detector accuracy is imperfect, the answer is that YOLO model accuracy is different from parallel correctness; serial and parallel outputs match, while model-versus-ground-truth accuracy depends on the pretrained detector and dataset difficulty.
+If asked about the level of parallelism, the answer is task-level parallelism. If asked about decomposition, the answer is hybrid temporal-spatial decomposition. If asked about mapping, the answer is a one-dimensional flattened mapping with static and weighted variants. If asked about communication topology, the answer is master-worker star topology. If asked why detector accuracy is imperfect, the answer is that YOLO model accuracy is different from parallel correctness; serial and parallel outputs match, while model-versus-ground-truth accuracy depends on the pretrained detector and dataset difficulty.

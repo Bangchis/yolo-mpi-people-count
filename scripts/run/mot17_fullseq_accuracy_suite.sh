@@ -13,7 +13,7 @@ mkdir -p "$suite_dir"
 export YOLO_DEVICE="${YOLO_DEVICE:-cpu}"
 export YOLO_IMGSZ="${YOLO_IMGSZ:-320}"
 export YOLO_TILE_GRID="${YOLO_TILE_GRID:-4x3}"
-export YOLO_PERF_SCHEDULE="${YOLO_PERF_SCHEDULE:-dynamic}"
+export YOLO_PERF_SCHEDULE=static
 export YOLO_MASTER_COMPUTE="${YOLO_MASTER_COMPUTE:-1}"
 export YOLO_RENDER_VIDEO="${YOLO_RENDER_VIDEO:-0}"
 export YOLO_NP="${YOLO_NP:-12}"

@@ -4,47 +4,6 @@ static std::string serialize_detections(const std::vector<Detection>& detections
 // Forward declaration for the same line-oriented metrics format.
 static std::string serialize_metrics(const Metrics& m);
 
-// Run one offline task and return a text payload containing detections plus metrics.
-static std::string process_one_task_payload(
-    const Config& cfg,
-    DetectorRunner& detector,
-    const Task& task,
-    int rank,
-    double comm_ms = 0.0
-) {
-    Metrics m;
-    m.rank = rank;
-    m.hostname = hostname();
-
-    std::vector<Detection> detections;
-
-    // Total compute timer includes optional sleep, detector, and local packing.
-    auto t0 = std::chrono::steady_clock::now();
-
-    if (cfg.sleep_ms > 0) {
-        // Artificial delay lets us simulate uneven task difficulty in benchmarks.
-        int jitter = (task.frame_id + task.tile_id) % 5;
-        std::this_thread::sleep_for(std::chrono::milliseconds(cfg.sleep_ms + jitter));
-    }
-
-    // YOLO timer is isolated for report metrics.
-    auto y0 = std::chrono::steady_clock::now();
-    auto task_dets = detector.detect(task);
-    auto y1 = std::chrono::steady_clock::now();
-
-    detections.insert(detections.end(), task_dets.begin(), task_dets.end());
-
-    auto t1 = std::chrono::steady_clock::now();
-
-    m.tasks_done = 1;
-    // Count a frame only once, represented by tile 0.
-    m.frames_done = task.tile_id == 0 ? 1 : 0;
-    m.yolo_ms = std::chrono::duration<double, std::milli>(y1 - y0).count();
-    m.compute_ms = std::chrono::duration<double, std::milli>(t1 - t0).count();
-    m.comm_ms = comm_ms;
-    return serialize_detections(detections) + serialize_metrics(m);
-}
-
 // Run one live JPEG tile task and return the same DET/MET text payload format.
 static std::string process_one_image_task_payload(
     const Config& cfg,

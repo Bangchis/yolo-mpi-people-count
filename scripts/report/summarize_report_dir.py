@@ -42,7 +42,6 @@ def existing_figures(report_dir: Path) -> list[tuple[str, Path]]:
         ("Count error by frame", report_dir / "accuracy" / "count_error_plot.png"),
         ("Find N runtime", report_dir / "find_N" / "figures" / "find_N_runtime.png"),
         ("Granularity overview", report_dir / "granularity" / "granularity_overview.png"),
-        ("Static vs dynamic scheduler", report_dir / "scheduler" / "figures" / "scheduler_comparison.png"),
         ("Speedup", report_dir / "speedup" / "figures" / "speedup.png"),
         ("Speedup 2N", report_dir / "speedup_2N" / "figures" / "speedup.png"),
         ("Heterogeneous weighted mapping", report_dir / "heterogeneous" / "figures" / "heterogeneous_balance.png"),
@@ -176,28 +175,6 @@ def main() -> int:
                     fmt_float(row.get("idle_gap_ratio", "")),
                     row.get("load_balance_pass", ""),
                 ] for row in granularity_rows],
-            )
-        )
-        lines.append("")
-
-    scheduler_rows = read_csv(report_dir / "scheduler" / "scheduler_comparison.csv")
-    if scheduler_rows:
-        lines.append("## Scheduler Comparison")
-        lines.append("")
-        lines.append(
-            md_table(
-                ["Schedule", "P", "Frames", "Grid", "With Comm (s)", "Without Comm (s)", "Load Imbalance", "Idle Gap", "Pass"],
-                [[
-                    row.get("schedule", ""),
-                    row.get("world_size", ""),
-                    row.get("frames", ""),
-                    row.get("tile_grid", ""),
-                    fmt_float(float(row.get("total_ms_with_comm", "0")) / 1000.0),
-                    fmt_float(float(row.get("total_ms_without_comm", "0")) / 1000.0),
-                    fmt_float(row.get("load_imbalance", "")),
-                    fmt_float(row.get("idle_gap_ratio", "")),
-                    row.get("load_balance_pass", ""),
-                ] for row in scheduler_rows],
             )
         )
         lines.append("")

@@ -33,22 +33,18 @@ if [[ "${YOLO_REPORT_QUICK:-0}" == "1" ]]; then
   correctness_frames="${YOLO_CORRECTNESS_FRAMES:-5}"
   accuracy_frames="${YOLO_ACCURACY_FRAMES:-10}"
   granularity_frames="${YOLO_GRANULARITY_FRAMES:-10}"
-  scheduler_frames="${YOLO_SCHED_COMPARE_FRAMES:-10}"
   export YOLO_FIND_FRAME_LIST="${YOLO_FIND_FRAME_LIST:-5 10}"
   export YOLO_GRANULARITY_GRIDS="${YOLO_GRANULARITY_GRIDS:-1x1 2x2}"
   export YOLO_P_LIST="${YOLO_P_LIST:-1 2}"
   export YOLO_SPEEDUP_FRAMES="${YOLO_SPEEDUP_FRAMES:-10}"
-  export YOLO_RUN_SCHEDULER_COMPARE="${YOLO_RUN_SCHEDULER_COMPARE:-0}"
 else
   correctness_frames="${YOLO_CORRECTNESS_FRAMES:-30}"
   accuracy_frames="${YOLO_ACCURACY_FRAMES:-300}"
   granularity_frames="${YOLO_GRANULARITY_FRAMES:-150}"
-  scheduler_frames="${YOLO_SCHED_COMPARE_FRAMES:-150}"
   export YOLO_FIND_FRAME_LIST="${YOLO_FIND_FRAME_LIST:-30 60 100 150}"
   export YOLO_GRANULARITY_GRIDS="${YOLO_GRANULARITY_GRIDS:-1x1 2x2 4x3}"
   export YOLO_P_LIST="${YOLO_P_LIST:-1 2 4 8 12}"
   export YOLO_SPEEDUP_FRAMES="${YOLO_SPEEDUP_FRAMES:-300}"
-  export YOLO_RUN_SCHEDULER_COMPARE="${YOLO_RUN_SCHEDULER_COMPARE:-1}"
 fi
 
 report_np="${YOLO_REPORT_MPI_NP:-${YOLO_NP:-12}}"
@@ -74,9 +70,6 @@ if [[ ! -f "$YOLO_GT_COUNTS" ]]; then
 fi
 
 mkdir -p "$report_dir"/{dataset,correctness,accuracy,find_N,granularity,speedup}
-if [[ "${YOLO_RUN_SCHEDULER_COMPARE:-0}" == "1" ]]; then
-  mkdir -p "$report_dir/scheduler"
-fi
 if [[ "${YOLO_RUN_HETEROGENEOUS:-0}" == "1" ]]; then
   mkdir -p "$report_dir/heterogeneous"
 fi
@@ -111,8 +104,6 @@ report_hostfile=$report_hostfile
 use_hostfile=$report_use_hostfile
 find_frame_list=$YOLO_FIND_FRAME_LIST
 granularity_grids=$YOLO_GRANULARITY_GRIDS
-scheduler_compare=${YOLO_RUN_SCHEDULER_COMPARE:-0}
-scheduler_frames=$scheduler_frames
 speedup_p_list=$YOLO_P_LIST
 speedup_frames=$YOLO_SPEEDUP_FRAMES
 speedup_map_by=${YOLO_SPEEDUP_MAP_BY:-${MPI_MAP_BY:-}}
@@ -207,18 +198,6 @@ done
 "$python_bin" scripts/report/plots/plot_granularity_overview.py \
   --input "$granularity_overview" \
   --output "$report_dir/granularity/granularity_overview.png"
-
-if [[ "${YOLO_RUN_SCHEDULER_COMPARE:-0}" == "1" ]]; then
-  echo
-  echo "PHASE 4b/6: static vs dynamic scheduling"
-  YOLO_RUN_DIR="$report_dir/scheduler" \
-  YOLO_SCHED_COMPARE_FRAMES="$scheduler_frames" \
-  YOLO_SCHED_COMPARE_NP="$report_np" \
-  YOLO_SCHED_COMPARE_HOSTFILE="$report_hostfile" \
-  YOLO_USE_HOSTFILE="$report_use_hostfile" \
-  YOLO_SCHED_COMPARE_TILE_GRID="$main_tile_grid" \
-  bash scripts/run/scheduler_comparison.sh
-fi
 
 echo
 echo "PHASE 5/6: speedup sweep"

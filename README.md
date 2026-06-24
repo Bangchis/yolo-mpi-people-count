@@ -10,10 +10,9 @@ The required parallel algorithm is implemented only in `C++17 + OpenMPI`.
 under `src/yolo_mpi/` by responsibility: `core`, `detector`, `mpi`,
 `postprocess`, `output`, and `live`. There is no Python MPI path.
 
-By default `YOLO_MASTER_COMPUTE=1`, so rank 0 on the master also runs a local
-YOLO worker on `device=mps`. In dynamic mode the master acts as both coordinator
-and worker: it feeds `node1`/`node2` over MPI while keeping work for its own
-Apple GPU.
+The final offline benchmark path uses static block-cyclic scheduling. Rank 0 on
+the master is also assigned work by the same static rule, so the master machine
+contributes compute instead of acting only as a collector.
 
 The final runtime mirrors the old 3-machine topology directly on macOS hosts:
 

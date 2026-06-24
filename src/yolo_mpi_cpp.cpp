@@ -11,7 +11,6 @@
 #include "yolo_mpi/mpi/communication.hpp"
 #include "yolo_mpi/mpi/static_scheduler.hpp"
 #include "yolo_mpi/mpi/protocol.hpp"
-#include "yolo_mpi/mpi/dynamic_scheduler.hpp"
 #include "yolo_mpi/postprocess/geometry.hpp"
 #include "yolo_mpi/postprocess/duplicate_rules.hpp"
 #include "yolo_mpi/postprocess/temporal.hpp"
@@ -49,10 +48,8 @@ int main(int argc, char** argv) {
         MPI_Barrier(MPI_COMM_WORLD);
         auto t0 = std::chrono::steady_clock::now();
 
-        // Scheduler returns serialized DET/MET rows on rank 0.
-        std::string payload = cfg.schedule == "dynamic"
-            ? run_dynamic(cfg, tasks, MPI_COMM_WORLD)
-            : run_static(cfg, tasks, MPI_COMM_WORLD);
+        // Static scheduler returns serialized DET/MET rows on rank 0.
+        std::string payload = run_static(cfg, tasks, MPI_COMM_WORLD);
 
         MPI_Barrier(MPI_COMM_WORLD);
         auto t1 = std::chrono::steady_clock::now();

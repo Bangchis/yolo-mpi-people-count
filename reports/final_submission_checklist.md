@@ -97,5 +97,5 @@ SUBMISSION_ZIP=dist/final_submission_<timestamp>.zip
 - Chosen N: `N=600` frames, runtime `123.667s`.
 - Speedup uses `2N=1200` frames.
 - Speedup at `P=12`: `1.939x` with communication, `2.011x` without communication.
-- Dynamic scheduling is not always faster; it has dispatch overhead but is more general for irregular tasks and heterogeneous machines.
+- Static scheduling is the final implementation path; load balance is handled through task granularity and weighted process placement.
 - YOLO-vs-ground-truth error is model accuracy, not parallel correctness.

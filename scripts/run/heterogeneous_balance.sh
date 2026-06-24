@@ -25,7 +25,7 @@ run_case() {
   YOLO_HOSTFILE="$hostfile" \
   YOLO_TILE_GRID="$tile_grid" \
   YOLO_RENDER_VIDEO=0 \
-  YOLO_PERF_SCHEDULE="${YOLO_SCHEDULE:-dynamic}" \
+  YOLO_PERF_SCHEDULE=static \
   bash scripts/run/demo_perf.sh
 
   "$python_bin" scripts/report/plots/plot_rank_metrics.py \
@@ -45,7 +45,7 @@ run_dir=$run_dir
 frames=$frames
 tile_grid=$tile_grid
 np=$np
-schedule=${YOLO_SCHEDULE:-dynamic}
+schedule=static
 device=${YOLO_DEVICE:-cpu}
 imgsz=${YOLO_IMGSZ:-320}
 uniform_hostfile=${YOLO_HET_UNIFORM_HOSTFILE:-configs/hosts_macos_cpu_uniform_24}

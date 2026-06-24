@@ -86,7 +86,7 @@ results/nonblocking_462_20260624-223546/
 | 600 | 35.452 s | 33.181 s | 12 | 5x4 | nonblocking |
 
 With the new non-blocking static gather and 4/6/2 placement, the 600-frame run
-is much shorter than the earlier dynamic report run. This is useful as an
+is much shorter than the earlier baseline report run. This is useful as an
 additional optimization experiment, but the original 2-3 minute `N` result
 should still be kept in the final report as the conservative course benchmark.
 
@@ -113,7 +113,7 @@ CPU speeds and uneven YOLO tile difficulty.
 | 12 | 79.059 s | 76.345 s | 3.342 | 0.278 |
 
 The `P=12` non-blocking static run reaches `3.342x` wall-clock speedup. This is
-stronger than the earlier dynamic report run because the final version combines
+stronger than the earlier baseline report run because the final version combines
 three improvements: static scheduling, weighted 4/6/2 placement, and
 non-blocking result collection.
 

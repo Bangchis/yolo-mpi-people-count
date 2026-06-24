@@ -173,7 +173,7 @@ YOLO_USE_HOSTFILE=0 \
 YOLO_P_LIST="$local_p_list" \
 YOLO_SPEEDUP_FRAMES="$frames" \
 YOLO_TILE_GRID="$tile_grid" \
-YOLO_SCHEDULE=dynamic \
+YOLO_SCHEDULE=static \
 bash scripts/run/speedup_sweep.sh
 
 echo "PHASE 3: three-machine cluster speedup on N=$frames"
@@ -183,7 +183,7 @@ YOLO_SWEEP_HOSTFILE="$hostfile" \
 YOLO_P_LIST="$cluster_p_list" \
 YOLO_SPEEDUP_FRAMES="$frames" \
 YOLO_TILE_GRID="$tile_grid" \
-YOLO_SCHEDULE=dynamic \
+YOLO_SCHEDULE=static \
 bash scripts/run/speedup_sweep.sh
 
 python3 - "$run_dir/local_only_N${frames}/raw/speedup.csv" "$run_dir/cluster_N${frames}/raw/speedup.csv" "$run_dir/local_vs_cluster.csv" <<'PY'
@@ -207,23 +207,14 @@ with out_csv.open("w", newline="", encoding="utf-8") as f:
     writer.writerows(rows)
 PY
 
-echo "PHASE 4: static vs dynamic on N=$frames"
-YOLO_RUN_DIR="$run_dir/scheduler_N${frames}" \
-YOLO_SCHED_COMPARE_HOSTFILE="$hostfile" \
-YOLO_SCHED_COMPARE_NP="$np" \
-YOLO_SCHED_COMPARE_FRAMES="$frames" \
-YOLO_SCHED_COMPARE_TILE_GRID="$tile_grid" \
-YOLO_USE_HOSTFILE=1 \
-bash scripts/run/scheduler_comparison.sh
-
-echo "PHASE 5: granularity on N=$frames"
+echo "PHASE 4: granularity on N=$frames"
 gran_dir="$run_dir/granularity_N${frames}"
 mkdir -p "$gran_dir"
 overview="$gran_dir/granularity_overview.csv"
 overview_initialized=0
 for grid in $granularity_grids; do
   out="$gran_dir/grid_${grid}"
-  run_perf_case "$out" "$frames" "$np" 1 "$hostfile" "$grid" dynamic
+  run_perf_case "$out" "$frames" "$np" 1 "$hostfile" "$grid" static
   "$python_bin" scripts/report/plots/plot_rank_metrics.py \
     --input "$out/rank_metrics.csv" \
     --output "$out/rank_metrics_stacked.png" \
@@ -240,7 +231,7 @@ done
   --input "$overview" \
   --output "$gran_dir/granularity_overview.png"
 
-echo "PHASE 6: repeated speedup on 2N=$speedup_frames"
+echo "PHASE 5: repeated speedup on 2N=$speedup_frames"
 repeat_raw="$run_dir/speedup_repeats_raw.csv"
 for repeat in $(seq 1 "$speedup_repeats"); do
   repeat_dir="$run_dir/speedup_2N_repeat_${repeat}"
@@ -251,7 +242,7 @@ for repeat in $(seq 1 "$speedup_repeats"); do
   YOLO_P_LIST="$cluster_p_list" \
   YOLO_SPEEDUP_FRAMES="$speedup_frames" \
   YOLO_TILE_GRID="$tile_grid" \
-  YOLO_SCHEDULE=dynamic \
+  YOLO_SCHEDULE=static \
   bash scripts/run/speedup_sweep.sh
   append_speedup_rows "$repeat_dir/raw/speedup.csv" "$repeat_raw" "cluster_2N" "$repeat"
 done
