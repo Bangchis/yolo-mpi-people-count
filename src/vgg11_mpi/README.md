@@ -7,6 +7,7 @@ separate from Method 1 YOLO task parallelism.
 src/vgg11_mpi/
   core/
     config.hpp         command-line options and MPI grid selection
+    image_dataset.hpp  PPM image-list reader for small image-dataset runs
     metrics.hpp        layer/rank/topology timing structs
     partition.hpp      2D block decomposition helpers
     tensor.hpp         simple C x H x W tensor, serial conv, ReLU, pooling
@@ -30,3 +31,12 @@ experiment, checks correctness against the serial stack, and writes outputs.
 
 The old top-level headers `tensor.hpp`, `partition.hpp`, and
 `distributed_conv.hpp` are kept as short compatibility includes.
+
+For real-image smoke tests, the binary supports:
+
+```bash
+build/vgg11_mpi --height 32 --width 32 --input-list data/vgg11-cifar10-mini/image_list.txt
+```
+
+Only rank 0 reads the image files. Other ranks receive their feature-map blocks
+through MPI, exactly like the synthetic benchmark path.

@@ -18,6 +18,8 @@ struct Config {
   std::string output_dir = "results/vgg11_mpi";
   std::string grid = "auto";
   std::string halo_mode = "blocking";
+  std::string input_list;
+  int input_limit = 0;
   int check_serial = 1;
   int repeats = 1;
 };
@@ -30,6 +32,8 @@ inline void print_usage() {
       << "  --profile tiny|small|full  VGG11 no-BN channel scale, default tiny\n"
       << "  --grid auto|RxC         MPI 2D process grid, default auto\n"
       << "  --halo-mode blocking|nonblocking  halo communication strategy, default blocking\n"
+      << "  --input-list FILE       optional PPM image list for small image-dataset runs\n"
+      << "  --input-limit N         use only first N images from --input-list, default all\n"
       << "  --output-dir DIR        output directory\n"
       << "  --check-serial 0|1      compare with serial stack on rank 0, default 1\n"
       << "  --repeats N             repeat distributed run and keep the last output\n";
@@ -58,6 +62,10 @@ inline Config parse_args(int argc, char **argv) {
       cfg.grid = require_value(arg);
     } else if (arg == "--halo-mode") {
       cfg.halo_mode = require_value(arg);
+    } else if (arg == "--input-list") {
+      cfg.input_list = require_value(arg);
+    } else if (arg == "--input-limit") {
+      cfg.input_limit = std::max(0, std::stoi(require_value(arg)));
     } else if (arg == "--output-dir") {
       cfg.output_dir = require_value(arg);
     } else if (arg == "--check-serial") {

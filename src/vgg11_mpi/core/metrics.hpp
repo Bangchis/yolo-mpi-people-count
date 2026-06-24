@@ -39,6 +39,18 @@ struct TopologyMetrics {
   int diagonal_edges = 0;
 };
 
+struct ImageMetrics {
+  int image_index = 0;
+  std::string image_path;
+  int height = 0;
+  int width = 0;
+  double distributed_ms = 0.0;
+  double serial_ms = 0.0;
+  double max_abs_error = 0.0;
+  double mean_abs_error = 0.0;
+  std::string correct = "NO";
+};
+
 inline double now_ms() {
   return MPI_Wtime() * 1000.0;
 }

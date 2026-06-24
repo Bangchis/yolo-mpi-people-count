@@ -20,6 +20,10 @@ repeats="${VGG_REPEATS:-1}"
 check_serial="${VGG_CHECK_SERIAL:-1}"
 hostfile="${VGG_HOSTFILE:-${YOLO_HOSTFILE:-configs/hosts_macos_core_weighted_12_4_6_2}}"
 use_hostfile="${VGG_USE_HOSTFILE:-${YOLO_USE_HOSTFILE:-0}}"
+input_list="${VGG_INPUT_LIST:-}"
+input_limit="${VGG_INPUT_LIMIT:-0}"
+
+export YOLO_USE_HOSTFILE="$use_hostfile"
 
 cat > "$run_dir/manifest.txt" <<EOF
 method=Method 2: VGG11 no-BN distributed convolution
@@ -34,6 +38,8 @@ repeats=$repeats
 check_serial=$check_serial
 use_hostfile=$use_hostfile
 hostfile=$hostfile
+input_list=$input_list
+input_limit=$input_limit
 purpose=Benchmark fine-grained data parallelism inside VGG11 convolution layers using 2D block mapping and halo exchange.
 EOF
 
@@ -45,7 +51,7 @@ for halo_mode in $halo_modes; do
     make_mpi_prefix "$p" "$hostfile" "$use_hostfile" mpi_cmd
 
     echo "VGG11_METHOD2_RUN halo_mode=$halo_mode p=$p out=$out"
-    "${mpi_cmd[@]}" \
+    rank_args=(
       build/vgg11_mpi \
       --height "$height" \
       --width "$width" \
@@ -55,6 +61,14 @@ for halo_mode in $halo_modes; do
       --output-dir "$out" \
       --check-serial "$check_serial" \
       --repeats "$repeats"
+    )
+    if [[ -n "$input_list" ]]; then
+      rank_args+=(--input-list "$input_list" --input-limit "$input_limit")
+    fi
+
+    make_rank_command rank_cmd "${rank_args[@]}"
+    "${mpi_cmd[@]}" "${rank_cmd[@]}"
+    pull_rank_output_if_needed "$out"
   done
 done
 

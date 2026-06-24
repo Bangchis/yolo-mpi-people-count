@@ -13,8 +13,8 @@
 
 namespace vgg11_mpi {
 
-inline Tensor run_serial_stack(const Config &cfg, const std::vector<ConvLayerSpec> &layers) {
-  Tensor current = make_deterministic_input(3, cfg.height, cfg.width);
+inline Tensor run_serial_stack_from_input(const Tensor &input, const std::vector<ConvLayerSpec> &layers) {
+  Tensor current = input;
   int in_channels = 3;
 
   for (size_t i = 0; i < layers.size(); ++i) {
@@ -33,19 +33,24 @@ inline Tensor run_serial_stack(const Config &cfg, const std::vector<ConvLayerSpe
   return current;
 }
 
-inline Tensor run_distributed_stack(const Config &cfg,
-                                    const std::vector<ConvLayerSpec> &layers,
-                                    int grid_rows,
-                                    int grid_cols,
-                                    std::vector<LayerMetrics> &layers_out,
-                                    RankMetrics &rank_metrics,
-                                    MPI_Comm comm) {
+inline Tensor run_serial_stack(const Config &cfg, const std::vector<ConvLayerSpec> &layers) {
+  return run_serial_stack_from_input(make_deterministic_input(3, cfg.height, cfg.width), layers);
+}
+
+inline Tensor run_distributed_stack_from_root_input(const Config &cfg,
+                                                   const Tensor &root_input,
+                                                   const std::vector<ConvLayerSpec> &layers,
+                                                   int grid_rows,
+                                                   int grid_cols,
+                                                   std::vector<LayerMetrics> &layers_out,
+                                                   RankMetrics &rank_metrics,
+                                                   MPI_Comm comm) {
   int rank = 0;
   MPI_Comm_rank(comm, &rank);
 
   Tensor current;
   if (rank == 0) {
-    current = make_deterministic_input(3, cfg.height, cfg.width);
+    current = root_input;
   }
 
   int in_channels = 3;
@@ -98,6 +103,31 @@ inline Tensor run_distributed_stack(const Config &cfg,
   }
 
   return current;
+}
+
+inline Tensor run_distributed_stack(const Config &cfg,
+                                    const std::vector<ConvLayerSpec> &layers,
+                                    int grid_rows,
+                                    int grid_cols,
+                                    std::vector<LayerMetrics> &layers_out,
+                                    RankMetrics &rank_metrics,
+                                    MPI_Comm comm) {
+  Tensor root_input;
+  int rank = 0;
+  MPI_Comm_rank(comm, &rank);
+
+  if (rank == 0) {
+    root_input = make_deterministic_input(3, cfg.height, cfg.width);
+  }
+
+  return run_distributed_stack_from_root_input(cfg,
+                                               root_input,
+                                               layers,
+                                               grid_rows,
+                                               grid_cols,
+                                               layers_out,
+                                               rank_metrics,
+                                               comm);
 }
 
 inline std::vector<RankMetrics> gather_rank_metrics(const RankMetrics &local, MPI_Comm comm) {

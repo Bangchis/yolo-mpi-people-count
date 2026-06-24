@@ -85,6 +85,25 @@ inline void write_rank_metrics(const fs::path &path, const std::vector<RankMetri
   }
 }
 
+inline void write_image_metrics(const fs::path &path, const std::vector<ImageMetrics> &rows) {
+  std::ofstream out(path);
+  out << "image_index,image_path,height,width,distributed_ms,serial_ms,"
+      << "max_abs_error,mean_abs_error,correct\n";
+
+  for (const ImageMetrics &row : rows) {
+    out << row.image_index << ','
+        << row.image_path << ','
+        << row.height << ','
+        << row.width << ','
+        << std::fixed << std::setprecision(6)
+        << row.distributed_ms << ','
+        << row.serial_ms << ','
+        << row.max_abs_error << ','
+        << row.mean_abs_error << ','
+        << row.correct << '\n';
+  }
+}
+
 inline void write_topology_mapping(const fs::path &path,
                                    const std::vector<RankMetrics> &rows,
                                    int grid_rows,
@@ -168,6 +187,8 @@ inline void write_manifest(const fs::path &path,
   out << "profile=" << cfg.profile << '\n';
   out << "height=" << cfg.height << '\n';
   out << "width=" << cfg.width << '\n';
+  out << "input_list=" << cfg.input_list << '\n';
+  out << "input_limit=" << cfg.input_limit << '\n';
   out << "world_size=" << world_size << '\n';
   out << "grid_rows=" << grid_rows << '\n';
   out << "grid_cols=" << grid_cols << '\n';
