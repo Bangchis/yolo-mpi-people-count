@@ -139,15 +139,7 @@ Outputs are written under `results/`:
 Video rendering is a Python/OpenCV post-process from C++ CSV output. The
 parallel algorithm remains C++17/OpenMPI.
 
-## Method 2: VGG11 Distributed Convolution
 
-Method 2 is a fine-grained CNN parallelization experiment. It does not run
-YOLO. It runs a VGG11 no-BatchNorm convolution stack where each convolution
-layer is split over a 2D MPI process grid:
-
-```text
-feature map -> 2D blocks -> halo exchange -> local Conv2D -> gather -> next layer
-```
 
 It writes correctness, speedup, communication, load-balance, and topology-aware
 mapping evidence:
@@ -187,23 +179,7 @@ This downloads a few small public images, converts them to PPM, then runs
 Method 2 with `--input-list`. The benchmark still checks distributed output
 against the serial VGG11 no-BN stack and writes `image_metrics.csv`.
 
-Three-machine Method 2 report run:
 
-```bash
-VGG_REPORT_DIR=results/vgg11_method2_report_$(date +%Y%m%d-%H%M%S) \
-VGG_USE_HOSTFILE=1 \
-VGG_HOSTFILE=configs/hosts_macos_core_weighted_12_4_6_2 \
-MPI_MAP_BY=slot \
-VGG_GRID=3x4 \
-VGG_HALO_MODES="blocking nonblocking" \
-VGG_SIZE_LIST="32 64 128" \
-VGG_INPUT_NP=12 \
-VGG_P_LIST="1 2 4 8 12" \
-VGG_SPEEDUP_SIZE=64 \
-VGG_REPORT_PROFILE=small \
-VGG_RUN_TOPOLOGY=1 \
-bash scripts/run/vgg11_report_experiments.sh
-```
 
 Three-machine tiny-image benchmark, to run only after all Macs are on the
 same LAN:
