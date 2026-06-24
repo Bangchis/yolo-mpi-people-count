@@ -89,14 +89,19 @@ static std::string run_static(const Config& cfg, const std::vector<Task>& tasks,
     auto payload = process_tasks_payload(cfg, local_tasks, rank, &local_metrics, false);
 
     auto c0 = std::chrono::steady_clock::now();
-    std::string gathered = gather_string(payload, 0, comm);
+    std::string gathered = cfg.comm_mode == "nonblocking"
+        ? gather_string_nonblocking(payload, 0, comm, 2000)
+        : gather_string(payload, 0, comm);
     auto c1 = std::chrono::steady_clock::now();
 
-    // Static mode communicates mainly at the final gather step.
+    // Static mode communicates mainly at the final result gather step.
     local_metrics.comm_ms += std::chrono::duration<double, std::milli>(c1 - c0).count();
 
     // Gather metrics separately so communication time is included in rank_metrics.csv.
-    std::string gathered_metrics = gather_string(serialize_metrics(local_metrics), 0, comm);
+    std::string metric_payload = serialize_metrics(local_metrics);
+    std::string gathered_metrics = cfg.comm_mode == "nonblocking"
+        ? gather_string_nonblocking(metric_payload, 0, comm, 2100)
+        : gather_string(metric_payload, 0, comm);
 
     if (rank == 0) {
         return gathered + gathered_metrics;

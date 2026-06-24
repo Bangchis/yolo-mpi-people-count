@@ -34,6 +34,7 @@ stronger MacBook Pro M4 node and fewer ranks to the weaker MacBook Air M2 node.
 | Choose input size `N` for 2-3 minutes | Runtime for 300, 600, and 837 frames | `results/report_mot17_mini_final_20260623-154318/find_N_long_fullseq_5x4/raw/find_N.csv` | `results/report_mot17_mini_final_20260623-154318/find_N_long_fullseq_5x4/figures/find_N_runtime.png` |
 | Granularity/load balance | Runtime per rank for different tile grids | `results/extra_report_live_20260623-185430/granularity_N600/granularity_overview.csv` | `results/extra_report_live_20260623-185430/granularity_N600/grid_5x4/rank_metrics_stacked.png` |
 | Improve load balance | Compare uniform vs weighted static placement | `results/extra_report_live_20260623-185430/weighted_static_N600/weighted_static_comparison.csv` | `results/extra_report_live_20260623-185430/weighted_static_N600/weighted_static_comparison.png` |
+| Non-blocking communication | Static non-blocking result gather with `4/6/2` placement | `results/nonblocking_462_20260624-223546/comm_mode_overview.csv` | `results/nonblocking_462_20260624-223546/figures/comm_mode_comparison.png` |
 | Speedup and efficiency | Run with `P = 1, 2, 4, 8, 12` | `results/report_mot17_mini_final_20260623-154318/speedup_2N/raw/speedup.csv` | `results/report_mot17_mini_final_20260623-154318/speedup_2N/figures/speedup.png` |
 | Local baseline | Compare local-only and three-machine cluster | `results/extra_report_live_20260623-185430/local_vs_cluster.csv` | `results/extra_report_live_20260623-185430/local_vs_cluster_runtime.png` |
 | Cluster setup evidence | MPI works across three physical MacBooks | `results/evidence_20260624-195958/evidence/cluster_evidence.txt` | no plot needed |
@@ -102,7 +103,25 @@ The best setting was `master=4,node1=6,node2=2`. It assigns more ranks to the
 MacBook Pro M4 and fewer ranks to the MacBook Air M2. The idle gap becomes
 0.235, which is below the 25% threshold required in the rubric.
 
-## 6. Speedup And Efficiency
+## 6. Non-Blocking Communication Variant
+
+The new non-blocking experiment keeps static scheduling and the same `4/6/2`
+weighted placement, but replaces the static result gather with `MPI_Isend`,
+`MPI_Irecv`, and `MPI_Waitall`.
+
+Source: `results/nonblocking_462_20260624-223546/comm_mode_overview.csv`
+
+| Communication mode | Correctness | Accuracy MAE | N=600 runtime | N=600 without communication | P=12 speedup runtime | P=12 speedup |
+|---|---|---:|---:|---:|---:|---:|
+| nonblocking | YES | 8.346667 | 35.452 s | 33.181 s | 79.059 s | 3.342 |
+
+Interpretation: the non-blocking gather preserves serial-vs-MPI correctness and
+improves the optimized static/weighted configuration. It should be presented as
+an additional communication optimization. It does not mean YOLO inference itself
+is overlapped with communication; the non-blocking part is the final result
+collection.
+
+## 7. Speedup And Efficiency
 
 The speedup experiment uses a larger workload and varies the number of MPI
 processes.
@@ -119,7 +138,7 @@ The speedup is positive but sublinear. This is expected because the workload has
 LAN communication, root-rank merging, nonuniform machine performance, and
 variable YOLO tile difficulty.
 
-## 7. Local Baseline Versus Three-Machine Cluster
+## 8. Local Baseline Versus Three-Machine Cluster
 
 | Case | Processes | Runtime with communication | Speedup |
 |---|---:|---:|---:|
@@ -132,13 +151,15 @@ The local-only result is useful as a baseline. The three-machine result shows
 that the program runs on the required physical MPI cluster and reduces runtime
 when more machines are used.
 
-## 8. Main Points For The Report
+## 9. Main Points For The Report
 
 - Parallel level: coarse-grained task parallelism.
 - Decomposition: hybrid temporal and spatial decomposition.
 - Mapping: 1D mapping of `(frame, tile)` tasks to MPI ranks.
 - Communication: master-worker style collection; ranks compute tasks and root
   rank merges bounding boxes and counts.
+- Non-blocking optimization: final static result collection can use
+  `MPI_Isend`, `MPI_Irecv`, and `MPI_Waitall`.
 - Load balancing: static placement is improved by weighted host slots for
   heterogeneous MacBooks.
 - Correctness: MPI result matches the serial YOLO result exactly in the

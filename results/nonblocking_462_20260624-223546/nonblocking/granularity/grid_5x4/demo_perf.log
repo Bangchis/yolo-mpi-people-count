@@ -1,0 +1,3 @@
+YOLO_MPI_CPP_RUN_DONE=YES
+RUN_DIR=results/nonblocking_462_20260624-223546/nonblocking/granularity/grid_5x4
+SUMMARY_CSV=results/nonblocking_462_20260624-223546/nonblocking/granularity/grid_5x4/summary.csv

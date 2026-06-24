@@ -1,0 +1,2 @@
+frames_compared,mae,rmse,mean_abs_percentage_error,exact_match_rate,mean_gt_count,mean_pred_count,predicted_csv,ground_truth_csv
+300,8.346667,8.676405,0.510376,0.000000,16.206667,7.860000,results/nonblocking_462_20260624-223546/nonblocking/accuracy/prediction/frame_counts.csv,data/mot17-mini/MOT17-02-SDP-300_counts.csv

@@ -1,0 +1,2 @@
+comm_mode,correctness_pass,accuracy_mae,find_n_600_s,find_n_600_without_comm_s,granularity_5x4_s,speedup_p12_s,speedup_p12,efficiency_p12
+nonblocking,YES,8.346667,35.451929,33.180605,48.137217,79.059189,3.341535956054394,0.27846132967119946

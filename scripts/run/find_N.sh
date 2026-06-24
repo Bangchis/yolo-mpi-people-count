@@ -10,7 +10,7 @@ run_dir="${YOLO_RUN_DIR:-results/find_N_$(date +%Y%m%d-%H%M%S)}"
 raw_dir="$run_dir/raw"
 mkdir -p "$raw_dir"
 csv="$raw_dir/find_N.csv"
-echo "frames,total_ms_with_comm,total_ms_without_comm,world_size,tile_grid,schedule" > "$csv"
+echo "frames,total_ms_with_comm,total_ms_without_comm,world_size,tile_grid,schedule,comm_mode" > "$csv"
 
 np="${YOLO_NP:-3}"
 hostfile="${YOLO_HOSTFILE:-configs/hosts_macos_gpu}"
@@ -37,6 +37,7 @@ for frames in ${YOLO_FIND_FRAME_LIST:-50 100 200 400 600 800}; do
     --dedup-large-area-ratio "${YOLO_DEDUP_LARGE_AREA_RATIO:-0.12}"
     --dedup-merge "${YOLO_DEDUP_MERGE:-1}"
     --schedule "${YOLO_SCHEDULE:-static}"
+    --comm-mode "${YOLO_COMM_MODE:-blocking}"
     --chunk-size "${YOLO_CHUNK_SIZE:-1}"
     --frames "$frames"
     --width "${YOLO_FRAME_WIDTH:-1280}"
@@ -65,7 +66,15 @@ with open(summary, newline="", encoding="utf-8") as f:
     row = next(csv.DictReader(f))
 with open(output, "a", newline="", encoding="utf-8") as f:
     w = csv.writer(f)
-    w.writerow([row["frames"], row["total_ms_with_comm"], row["total_ms_without_comm"], row["world_size"], row["tile_grid"], row["schedule"]])
+    w.writerow([
+        row["frames"],
+        row["total_ms_with_comm"],
+        row["total_ms_without_comm"],
+        row["world_size"],
+        row["tile_grid"],
+        row["schedule"],
+        row.get("comm_mode", "blocking"),
+    ])
 PY
 done
 

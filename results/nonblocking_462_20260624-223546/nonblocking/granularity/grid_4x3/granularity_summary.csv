@@ -1,0 +1,2 @@
+label,rank_count,total_tasks,compute_s_max,compute_s_min,compute_s_avg,comm_s_total,idle_s_total,idle_gap_ratio,load_balance_pass
+nonblocking_grid_4x3,12,7200,28.864680,13.353736,21.002369,73.916213,94.347728,0.537368,NO

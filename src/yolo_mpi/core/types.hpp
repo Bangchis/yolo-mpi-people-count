@@ -47,6 +47,7 @@ struct Config {
     double duplicate_large_area_ratio = 0.12;
     bool duplicate_merge = true;
     std::string schedule = "static";
+    std::string comm_mode = "blocking";
     int chunk_size = 1;
     int frames = 20;
     int start_frame = 0;

@@ -20,7 +20,7 @@ This project studies the parallelization of video-based people counting on a sma
 
 The video stream is decomposed along both time and image space. Frames provide independent temporal work units, and each frame may be divided into image regions to increase task granularity. These tasks are then mapped to MPI processes using static scheduling or a dynamic master-worker strategy. The master process gathers detector outputs, remaps bounding boxes to the original frame, removes duplicates across region boundaries, and produces frame-level people counts. This design exposes the main issues of parallel programming: decomposition, mapping, communication, load balancing, granularity, and speedup.
 
-Experiments were conducted on MOT17-derived video data. The parallel implementation was first validated against a serial baseline, producing identical frame counts in the correctness test. The detector output was also compared against MOT17 ground truth counts to separate model accuracy from parallel correctness. A long-sequence benchmark identified a 600-frame workload whose wall-clock runtime was 123.667 seconds on twelve processes, satisfying the required two-to-three-minute input-size criterion. For a 1200-frame workload, the system achieved a wall-clock speedup of 1.939x at twelve processes. Additional experiments investigated granularity, scheduler behavior, and weighted process placement. The best weighted placement reduced the idle-gap indicator from 0.466 to 0.235, satisfying the twenty-five percent load-balance criterion.
+Experiments were conducted on MOT17-derived video data. The parallel implementation was first validated against a serial baseline, producing identical frame counts in the correctness test. The detector output was also compared against MOT17 ground truth counts to separate model accuracy from parallel correctness. A long-sequence benchmark identified a 600-frame workload whose wall-clock runtime was 123.667 seconds on twelve processes, satisfying the required two-to-three-minute input-size criterion. For a 1200-frame workload, the system achieved a wall-clock speedup of 1.939x at twelve processes. Additional experiments investigated granularity, scheduler behavior, weighted process placement, and non-blocking communication. The best weighted placement reduced the idle-gap indicator from 0.466 to 0.235, satisfying the twenty-five percent load-balance criterion. The final non-blocking static gather experiment with the same four-six-two placement achieved 3.342x wall-clock speedup on the 1200-frame workload.
 
 **Keywords:** parallel computing, OpenMPI, object detection, YOLO, people counting, load balancing, speedup, distributed video processing.
 
@@ -47,6 +47,7 @@ Experiments were conducted on MOT17-derived video data. The parallel implementat
 5. Static and dynamic scheduling comparison
 6. Speedup on the twelve-hundred-frame workload
 7. Weighted static placement comparison
+8. Non-blocking communication overview
 
 ## List of Tables
 
@@ -60,8 +61,9 @@ Experiments were conducted on MOT17-derived video data. The parallel implementat
 8. Scheduler comparison
 9. Speedup evaluation
 10. Weighted static placement
-11. Per-host behavior under weighted placement
-12. Assignment requirement mapping
+11. Non-blocking communication
+12. Per-host behavior under weighted placement
+13. Assignment requirement mapping
 
 ## 1. Introduction
 
@@ -113,7 +115,7 @@ The project also includes a weighted process placement experiment. Since the mac
 
 The communication topology is a master-worker star topology. The master is responsible for task distribution, result collection, and final merging. Workers receive task descriptions, perform local detection, and send back detection results and timing metrics.
 
-The communication strategy uses blocking communication for the main send and receive operations, together with probing at the master to detect available worker results. The gathered information includes both detection boxes and per-process timing data. The amount of data communicated is kept moderate because the video files and model files are synchronized to each machine before benchmarking. Therefore, the cluster mostly exchanges task metadata and detection results rather than raw video frames.
+The original communication strategy uses blocking communication for the main send and receive operations. The optimized static variant also includes a non-blocking result-gather stage. In that version, worker ranks send payload sizes and serialized detection results using non-blocking sends, while the master posts non-blocking receives and waits for all results together. The gathered information includes both detection boxes and per-process timing data. The amount of data communicated is kept moderate because the video files and model files are synchronized to each machine before benchmarking. Therefore, the cluster mostly exchanges task metadata and detection results rather than raw video frames.
 
 The master-worker design is suitable for this problem because duplicate removal and final counting require a global view of all detections from the same frame. If each process counted independently, a person crossing a region boundary could be counted more than once. Centralized merging at the master avoids this inconsistency.
 
@@ -256,6 +258,10 @@ After selecting the required input size, the speedup experiment uses a workload 
 
 The cluster machines are not identical. A weighted mapping experiment assigns more processes to the stronger machine and fewer processes to the weaker one. This experiment is not the main course benchmark, but it provides additional insight into processor assignment on heterogeneous physical machines.
 
+### 6.8 Non-Blocking Communication
+
+After the static weighted placement is selected, the final result-gather stage is also tested with non-blocking MPI communication. This experiment keeps the same task decomposition, detector, and four-six-two process placement, but replaces the blocking static gather with `MPI_Isend`, `MPI_Irecv`, and `MPI_Waitall`. The goal is to evaluate whether a non-blocking communication style can reduce result-collection overhead while preserving the same serial-versus-MPI output.
+
 ## 7. Results and Discussion
 
 ### 7.1 Parallel Correctness
@@ -375,13 +381,31 @@ Table 11 summarizes the per-host behavior of the best placement.
 
 The final four-six-two placement reduces runtime and satisfies the twenty-five percent load-balance criterion. The experiment shows why equal process placement is not appropriate on a heterogeneous physical cluster. Equal placement gives every machine the same number of ranks, but the machines do not have the same performance. Weighted placement uses measured behavior to assign more work to the stronger node and less work to the weaker node.
 
-### 7.8 Summary of Experimental Findings
+### 7.8 Non-Blocking Communication Experiment
 
-The experiments support four main conclusions. First, the MPI implementation preserves the serial pipeline output in the correctness test. Second, the detector accuracy on MOT17 is limited by the pretrained model and the difficulty of crowded scenes, not by MPI parallelization. Third, the selected six-hundred-frame input satisfies the required runtime interval, and the twelve-hundred-frame workload shows measurable speedup. Fourth, granularity and mapping strongly affect performance. Equal placement fails the load-balance criterion, while the measured weighted placement satisfies it and reduces runtime.
+Table 11 shows the optimized static non-blocking experiment with the four-six-two placement. The correctness test still passes, so the communication change does not alter the final frame counts.
+
+| Metric | Value |
+|---|---:|
+| Correctness pass | YES |
+| Accuracy MAE | 8.347 |
+| Runtime for 600 frames | 35.452 s |
+| Runtime for 600 frames without communication | 33.181 s |
+| Runtime for 1200 frames at P=12 | 79.059 s |
+| Speedup at P=12 | 3.342 |
+| Efficiency at P=12 | 0.278 |
+
+![Non-blocking communication overview](../results/nonblocking_462_20260624-223546/figures/comm_mode_comparison.png)
+
+The non-blocking variant should be interpreted as a communication optimization of the static pipeline. It does not split YOLO inference internally and it does not fully overlap detector computation with communication. Each rank still finishes its assigned tile tasks first. The improvement comes from collecting variable-length serialized results with non-blocking operations at the final aggregation stage.
+
+### 7.9 Summary of Experimental Findings
+
+The experiments support five main conclusions. First, the MPI implementation preserves the serial pipeline output in the correctness test. Second, the detector accuracy on MOT17 is limited by the pretrained model and the difficulty of crowded scenes, not by MPI parallelization. Third, the selected six-hundred-frame input satisfies the required runtime interval, and the twelve-hundred-frame workload shows measurable speedup. Fourth, granularity and mapping strongly affect performance. Equal placement fails the load-balance criterion, while the measured weighted placement satisfies it and reduces runtime. Fifth, non-blocking result collection further improves the optimized static weighted configuration.
 
 The results also show that communication and synchronization are central issues in this project. The algorithm contains a sequential merging component at the master, and distributed execution introduces coordination overhead. These factors limit speedup, but they are precisely the factors that make the project relevant to parallel computing rather than merely object detection.
 
-### 7.9 Live-Camera Demonstration
+### 7.10 Live-Camera Demonstration
 
 The project includes a live-camera mode in which the master captures video from its camera, distributes computation to the cluster, and displays the detected people count in real time. This mode demonstrates the application value of the system. However, the formal benchmark results in this report use offline MOT17-derived videos and CPU execution to keep the performance evaluation reproducible and aligned with MPI process-level requirements.
 
@@ -396,9 +420,9 @@ Table 12 maps the assignment requirements to the project outcomes.
 | Parallelization level | Task-level parallelism |
 | Decomposition method | Hybrid temporal-spatial decomposition |
 | Mapping technique | One-dimensional flattened task mapping with static, dynamic, and weighted variants |
-| Communication strategy | Master-worker star topology with MPI communication |
+| Communication strategy | Master-worker star topology with blocking and non-blocking MPI result collection |
 | Load balancing | Granularity study, scheduler comparison, and weighted process placement satisfying the twenty-five percent criterion |
-| Parallel algorithm description | Static and dynamic algorithms are described in the methodology section |
+| Parallel algorithm description | Static, dynamic, weighted, and non-blocking variants are described in the methodology section |
 | Correctness | Serial and MPI outputs match in the correctness experiment |
 | Input-size selection | A six-hundred-frame workload runs in 123.667 seconds |
 | Granularity evaluation | Multiple region grids are evaluated with per-process timing charts |
@@ -410,7 +434,7 @@ Table 12 maps the assignment requirements to the project outcomes.
 
 The first limitation is detector accuracy. The pretrained model undercounts crowded MOT17 scenes. Fine-tuning on pedestrian and crowd data or using a larger detector could improve application accuracy, although it would also increase runtime.
 
-The second limitation is communication overhead. Dynamic scheduling is more flexible, but frequent task dispatch and result collection can become expensive. A future version could batch multiple tasks per dispatch, use more non-blocking communication, or overlap communication with local post-processing more aggressively.
+The second limitation is communication overhead. Dynamic scheduling is more flexible, but frequent task dispatch and result collection can become expensive. The current non-blocking variant optimizes the final static gather, but it does not yet overlap YOLO inference itself with communication. A future version could batch multiple tasks per dispatch or overlap communication with local post-processing more aggressively.
 
 The third limitation is duplicate handling. Spatial decomposition requires careful merging near region boundaries. The current global suppression and ownership rules reduce duplicates, but difficult camera-close cases can still create false positives or false merges. A temporal tracker such as ByteTrack or DeepSORT could stabilize counts across frames.
 
@@ -420,9 +444,9 @@ Finally, the experiments were conducted on a small three-machine cluster. This i
 
 ## 10. Conclusion
 
-This project implemented and evaluated a parallel people-counting pipeline using YOLO and C++17/OpenMPI on a three-machine physical cluster. The algorithm uses task-level parallelism with hybrid temporal-spatial decomposition. Static scheduling, dynamic scheduling, and weighted process placement were implemented and experimentally studied.
+This project implemented and evaluated a parallel people-counting pipeline using YOLO and C++17/OpenMPI on a three-machine physical cluster. The algorithm uses task-level parallelism with hybrid temporal-spatial decomposition. Static scheduling, dynamic scheduling, weighted process placement, and non-blocking result collection were implemented and experimentally studied.
 
-The parallel implementation passed the serial-versus-MPI correctness test. A 600-frame workload was selected because its twelve-process runtime was 123.667 seconds, satisfying the required two-to-three-minute range. On a 1200-frame workload, the system achieved a wall-clock speedup of 1.939x at twelve processes. The granularity and scheduler experiments showed that task size, communication overhead, and hardware heterogeneity strongly influence performance. The final weighted static placement reduced the idle-gap indicator to 0.235, satisfying the load-balance criterion.
+The parallel implementation passed the serial-versus-MPI correctness test. A 600-frame workload was selected because its twelve-process runtime was 123.667 seconds, satisfying the required two-to-three-minute range. On a 1200-frame workload, the initial system achieved a wall-clock speedup of 1.939x at twelve processes. The final optimized static non-blocking configuration achieved 3.342x wall-clock speedup. The granularity and scheduler experiments showed that task size, communication overhead, and hardware heterogeneity strongly influence performance. The final weighted static placement reduced the idle-gap indicator to 0.235, satisfying the load-balance criterion.
 
 Although the speedup is not linear, the project demonstrates the central concepts of parallel programming: decomposition, mapping, communication, load balancing, correctness, granularity, and performance evaluation. The live-camera mode further shows that the system can be used as an interactive distributed vision application, while the formal CPU benchmarks provide reproducible evidence for the course report.
 

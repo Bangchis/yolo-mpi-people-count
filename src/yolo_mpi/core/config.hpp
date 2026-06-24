@@ -50,6 +50,8 @@ static Config parse_args(int argc, char** argv) {
         // Workload size, MPI schedule, and output controls.
         } else if (key == "--schedule") {
             cfg.schedule = need_value(key);
+        } else if (key == "--comm-mode") {
+            cfg.comm_mode = need_value(key);
         } else if (key == "--chunk-size") {
             cfg.chunk_size = std::stoi(need_value(key));
         } else if (key == "--frames") {
@@ -118,6 +120,7 @@ static Config parse_args(int argc, char** argv) {
             std::cout
                 << "Usage: yolo_mpi_cpp [options]\n"
                 << "  --frames N --tile-grid COLSxROWS --schedule static|dynamic\n"
+                << "  --comm-mode blocking|nonblocking controls static result gather\n"
                 << "  --master-compute 1 lets rank 0 use the master GPU in dynamic mode\n"
                 << "  --detector mock|yolo|command\n"
                 << "  --live 1 --camera-index 0 --live-view 1\n"
@@ -134,6 +137,12 @@ static Config parse_args(int argc, char** argv) {
     }
     if (cfg.schedule != "static" && cfg.schedule != "dynamic") {
         throw std::runtime_error("--schedule must be static or dynamic");
+    }
+    if (cfg.comm_mode != "blocking" && cfg.comm_mode != "nonblocking") {
+        throw std::runtime_error("--comm-mode must be blocking or nonblocking");
+    }
+    if (cfg.schedule != "static" && cfg.comm_mode == "nonblocking") {
+        throw std::runtime_error("--comm-mode nonblocking is currently implemented for --schedule static");
     }
     if (cfg.detector != "mock" && cfg.detector != "yolo" && cfg.detector != "command") {
         throw std::runtime_error("--detector must be mock, yolo, or command");

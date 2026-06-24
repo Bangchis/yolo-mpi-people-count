@@ -1,0 +1,3 @@
+rank,hostname,tasks_done,frames_done,compute_ms,io_ms,yolo_ms,comm_ms,idle_ms
+0,Phams-MacBook-Air.local,12000,1200,228714.2434,0.0000,228710.1519,31.8422,29.6706
+1,Phams-MacBook-Air.local,12000,0,228743.9140,0.0000,228739.5658,0.9386,0.0000

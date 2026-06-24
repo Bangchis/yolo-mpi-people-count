@@ -1,0 +1,3 @@
+frames,total_ms_with_comm,total_ms_without_comm,world_size,tile_grid,schedule,comm_mode
+300,17613.6573,15294.5632,12,5x4,static,nonblocking
+600,35451.9288,33180.6054,12,5x4,static,nonblocking
