@@ -109,23 +109,29 @@ topology_grid.txt     -> luoi rank de nhin nhanh khi thuyet trinh
 - Chay serial baseline va distributed VGG11 convolution stack.
 - Ghi `summary.csv`, `layer_metrics.csv`, `rank_metrics.csv`, topology files.
 
-`src/vgg11_mpi/tensor.hpp`
+`src/vgg11_mpi/core/tensor.hpp`
 
 - Tensor C x H x W don gian.
 - Tao input/weights deterministic.
 - Serial Conv2D, ReLU, MaxPool, compare tensor error.
 
-`src/vgg11_mpi/partition.hpp`
+`src/vgg11_mpi/core/partition.hpp`
 
 - Chia feature map thanh block 2D.
 - Dung cho mapping rank -> block.
 
-`src/vgg11_mpi/distributed_conv.hpp`
+`src/vgg11_mpi/conv/`
 
 - Scatter core block.
 - Halo exchange blocking/nonblocking.
 - Local Conv2D tren block co halo.
 - Gather output block ve rank 0.
+
+`src/vgg11_mpi/runner/` va `src/vgg11_mpi/output/`
+
+- Chay serial/distributed VGG11 stack.
+- Gom rank metrics.
+- Ghi CSV va topology files.
 
 ## 4. Python Files Quan Trong
 
@@ -223,8 +229,8 @@ Nguoi 4: Report va plots
 
 Neu muon chia Method 2 rieng:
 
-Nguoi 1 doc `src/vgg11_mpi/distributed_conv.hpp` de giai thich halo exchange.
-Nguoi 2 doc `src/vgg11_mpi.cpp` de giai thich VGG11 stack va correctness.
+Nguoi 1 doc `src/vgg11_mpi/conv/halo_exchange.hpp` va `src/vgg11_mpi/conv/distributed_conv.hpp` de giai thich halo exchange.
+Nguoi 2 doc `src/vgg11_mpi/runner/vgg11_runner.hpp` va `src/vgg11_mpi.cpp` de giai thich VGG11 stack va correctness.
 Nguoi 3 chay `scripts/run/vgg11_report_experiments.sh` tren 3 may.
 Nguoi 4 dua hinh/bang Method 2 vao report.
 

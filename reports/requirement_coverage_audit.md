@@ -53,10 +53,10 @@ adding fine-grained data parallelism inside CNN convolution layers.
 | Instructor/report item | Method 2 evidence | Current status |
 |---|---|---|
 | Parallel level | Data parallelism inside CNN convolution layers | Implemented in `src/vgg11_mpi.cpp` and `src/vgg11_mpi/` |
-| Decomposition | 2D feature-map block decomposition | Implemented in `src/vgg11_mpi/partition.hpp` |
+| Decomposition | 2D feature-map block decomposition | Implemented in `src/vgg11_mpi/core/partition.hpp` |
 | Mapping technique | `Pr x Pc` 2D process grid | Implemented, grid selected by `--grid auto` or `--grid 3x4` |
 | Communication topology | 2D mesh / Cartesian-style neighbor communication | Implemented through rank-neighbor halo exchange |
-| Halo exchange | Row, column, and corner halo exchange for 3x3 convolution | Implemented in `distributed_conv.hpp` |
+| Halo exchange | Row, column, and corner halo exchange for 3x3 convolution | Implemented in `src/vgg11_mpi/conv/halo_exchange.hpp` |
 | Blocking communication | `MPI_Sendrecv` halo exchange | Implemented with `--halo-mode blocking` |
 | Non-blocking communication | `MPI_Irecv`, `MPI_Isend`, `MPI_Waitall` halo exchange | Implemented with `--halo-mode nonblocking` |
 | Topology-aware placement | Contiguous rank placement and inter-machine halo edge counting | Implemented through hostfile order plus `topology_metrics.csv` |
