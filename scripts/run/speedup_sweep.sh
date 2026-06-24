@@ -40,6 +40,8 @@ for np in ${YOLO_P_LIST:-1 2 3}; do
     --schedule "${YOLO_SCHEDULE:-static}"
     --comm-mode "${YOLO_COMM_MODE:-blocking}"
     --chunk-size "${YOLO_CHUNK_SIZE:-1}"
+    --stream-batch-tasks "${YOLO_STREAM_BATCH_TASKS:-20}"
+    --stream-max-pending "${YOLO_STREAM_MAX_PENDING:-2}"
     --frames "${YOLO_SPEEDUP_FRAMES:-${YOLO_PERF_FRAMES:-100}}"
     --width "${YOLO_FRAME_WIDTH:-1280}"
     --height "${YOLO_FRAME_HEIGHT:-720}"

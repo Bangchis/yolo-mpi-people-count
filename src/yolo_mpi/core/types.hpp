@@ -11,6 +11,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <deque>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
@@ -49,6 +50,8 @@ struct Config {
     std::string schedule = "static";
     std::string comm_mode = "blocking";
     int chunk_size = 1;
+    int stream_batch_tasks = 20;
+    int stream_max_pending = 2;
     int frames = 20;
     int start_frame = 0;
     int width = 1280;

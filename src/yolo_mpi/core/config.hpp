@@ -54,6 +54,10 @@ static Config parse_args(int argc, char** argv) {
             cfg.comm_mode = need_value(key);
         } else if (key == "--chunk-size") {
             cfg.chunk_size = std::stoi(need_value(key));
+        } else if (key == "--stream-batch-tasks") {
+            cfg.stream_batch_tasks = std::stoi(need_value(key));
+        } else if (key == "--stream-max-pending") {
+            cfg.stream_max_pending = std::stoi(need_value(key));
         } else if (key == "--frames") {
             cfg.frames = std::stoi(need_value(key));
         } else if (key == "--start-frame") {
@@ -120,7 +124,8 @@ static Config parse_args(int argc, char** argv) {
             std::cout
                 << "Usage: yolo_mpi_cpp [options]\n"
                 << "  --frames N --tile-grid COLSxROWS --schedule static\n"
-                << "  --comm-mode blocking|nonblocking controls static result gather\n"
+                << "  --comm-mode blocking|nonblocking|streaming controls result communication\n"
+                << "  --stream-batch-tasks N controls streaming batch size\n"
                 << "  --master-compute is kept for old scripts but static scheduling ignores it\n"
                 << "  --detector mock|yolo|command\n"
                 << "  --live 1 --camera-index 0 --live-view 1\n"
@@ -132,14 +137,17 @@ static Config parse_args(int argc, char** argv) {
     }
 
     // Reject invalid values before MPI ranks start doing expensive work.
-    if (cfg.frames <= 0 || cfg.width <= 0 || cfg.height <= 0 || cfg.chunk_size <= 0) {
-        throw std::runtime_error("frames, width, height, and chunk-size must be positive");
+    if (cfg.frames <= 0 || cfg.width <= 0 || cfg.height <= 0 || cfg.chunk_size <= 0 ||
+        cfg.stream_batch_tasks <= 0 || cfg.stream_max_pending <= 0) {
+        throw std::runtime_error(
+            "frames, width, height, chunk-size, stream-batch-tasks, and stream-max-pending must be positive"
+        );
     }
     if (cfg.schedule != "static") {
         throw std::runtime_error("--schedule must be static");
     }
-    if (cfg.comm_mode != "blocking" && cfg.comm_mode != "nonblocking") {
-        throw std::runtime_error("--comm-mode must be blocking or nonblocking");
+    if (cfg.comm_mode != "blocking" && cfg.comm_mode != "nonblocking" && cfg.comm_mode != "streaming") {
+        throw std::runtime_error("--comm-mode must be blocking, nonblocking, or streaming");
     }
     if (cfg.detector != "mock" && cfg.detector != "yolo" && cfg.detector != "command") {
         throw std::runtime_error("--detector must be mock, yolo, or command");

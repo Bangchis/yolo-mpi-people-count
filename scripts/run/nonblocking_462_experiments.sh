@@ -33,7 +33,7 @@ else
 fi
 
 tile_grid="${YOLO_NB_TILE_GRID:-5x4}"
-modes="${YOLO_NB_COMM_MODES:-blocking nonblocking}"
+modes="${YOLO_NB_COMM_MODES:-blocking nonblocking streaming}"
 
 export YOLO_MODEL="${YOLO_MODEL:-models/yolo11n.pt}"
 export YOLO_DEVICE="${YOLO_DEVICE:-cpu}"
@@ -52,6 +52,8 @@ export YOLO_DEDUP_MERGE="${YOLO_DEDUP_MERGE:-1}"
 export YOLO_SCHEDULE=static
 export YOLO_MASTER_COMPUTE="${YOLO_MASTER_COMPUTE:-1}"
 export YOLO_CHUNK_SIZE="${YOLO_CHUNK_SIZE:-1}"
+export YOLO_STREAM_BATCH_TASKS="${YOLO_STREAM_BATCH_TASKS:-20}"
+export YOLO_STREAM_MAX_PENDING="${YOLO_STREAM_MAX_PENDING:-2}"
 export YOLO_DETECTOR="${YOLO_DETECTOR:-yolo}"
 export YOLO_USE_HOSTFILE="${YOLO_USE_HOSTFILE:-1}"
 
@@ -156,6 +158,8 @@ placement=master:4,node1:6,node2:2
 np=$np
 modes=$modes
 schedule=static
+stream_batch_tasks=$YOLO_STREAM_BATCH_TASKS
+stream_max_pending=$YOLO_STREAM_MAX_PENDING
 device=$YOLO_DEVICE
 imgsz=$YOLO_IMGSZ
 mini_source=$mini_source

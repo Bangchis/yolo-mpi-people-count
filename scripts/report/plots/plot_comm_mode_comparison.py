@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Plot blocking vs non-blocking MPI communication results."""
+"""Plot MPI communication-mode benchmark results."""
 
 from __future__ import annotations
 
@@ -16,13 +16,13 @@ def read_rows(path: Path) -> list[dict[str, str]]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Plot blocking vs non-blocking comparison.")
+    parser = argparse.ArgumentParser(description="Plot MPI communication-mode comparison.")
     parser.add_argument("--input", required=True, help="comm_mode_overview.csv")
     parser.add_argument("--output", required=True, help="output PNG")
     args = parser.parse_args()
 
     rows = read_rows(Path(args.input))
-    preferred = ["blocking", "nonblocking"]
+    preferred = ["blocking", "nonblocking", "streaming"]
     available = {row["comm_mode"] for row in rows}
     modes = [mode for mode in preferred if mode in available]
     labels = ["Find N runtime", "Granularity runtime", "Speedup P=12 runtime"]
@@ -33,9 +33,10 @@ def main() -> int:
     fig, axes = plt.subplots(1, 2, figsize=(12, 4))
 
     x = range(len(labels))
-    width = 0.35
+    width = 0.75 / max(1, len(modes))
+    start = -0.5 * width * (len(modes) - 1)
 
-    offsets = [0.0] if len(modes) == 1 else [-width / 2, width / 2]
+    offsets = [start + i * width for i in range(len(modes))]
     for offset, mode in zip(offsets, modes):
         values = [float(by_mode.get(mode, {}).get(key, 0) or 0) for key in keys]
         axes[0].bar([i + offset for i in x], values, width=width, label=mode)
@@ -48,7 +49,7 @@ def main() -> int:
     axes[0].grid(axis="y", alpha=0.25)
 
     speedups = [float(by_mode.get(mode, {}).get("speedup_p12", 0) or 0) for mode in modes]
-    axes[1].bar(modes, speedups, color=["#4C78A8", "#F58518"])
+    axes[1].bar(modes, speedups, color=["#4C78A8", "#F58518", "#54A24B"][: len(modes)])
     axes[1].set_ylabel("Speedup at P=12")
     axes[1].set_title("Speedup Comparison")
     axes[1].grid(axis="y", alpha=0.25)

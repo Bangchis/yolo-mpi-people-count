@@ -39,6 +39,8 @@ for frames in ${YOLO_FIND_FRAME_LIST:-50 100 200 400 600 800}; do
     --schedule "${YOLO_SCHEDULE:-static}"
     --comm-mode "${YOLO_COMM_MODE:-blocking}"
     --chunk-size "${YOLO_CHUNK_SIZE:-1}"
+    --stream-batch-tasks "${YOLO_STREAM_BATCH_TASKS:-20}"
+    --stream-max-pending "${YOLO_STREAM_MAX_PENDING:-2}"
     --frames "$frames"
     --width "${YOLO_FRAME_WIDTH:-1280}"
     --height "${YOLO_FRAME_HEIGHT:-720}"
