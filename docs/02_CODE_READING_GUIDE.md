@@ -1,14 +1,15 @@
 # Huong Dan Doc Code Va Chia Viec
 
 Muc tieu cua tai lieu nay la giup ca nhom doc code theo dung luong chay, khong
-bi lac trong cac script phu. Du an co hai lop:
+bi lac trong cac script phu. Du an co hai method chinh:
 
-1. Lop thuat toan song song: C++17 + OpenMPI.
-2. Lop ho tro: Python/shell cho YOLO worker, camera, ve bieu do, tai asset.
+1. Method 1: YOLO11n video inference, song song hoa tac vu.
+2. Method 2: VGG11 no-BN convolution, song song hoa du lieu trong layer.
 
-Python khong chay MPI. MPI chi nam trong C++.
+Ca hai method deu dung C++17 + OpenMPI. Python khong chay MPI. Python chi ho
+tro YOLO worker, camera, ve bieu do, tai asset va tao report.
 
-## 1. Luong Chay Chinh
+## 1. Luong Chay Method 1
 
 ```text
 mpirun
@@ -31,7 +32,37 @@ rank 0 doc camera
   -> rank 0 gom bbox va hien cua so live
 ```
 
-## 2. C++ Runtime Files
+## 2. Luong Chay Method 2
+
+```text
+mpirun
+  -> build/vgg11_mpi
+    -> tao input tensor deterministic
+    -> chay VGG11 no-BN convolution stack
+    -> moi Conv2D chia feature map thanh block 2D
+    -> cac rank trao doi halo voi hang xom
+    -> moi rank tinh local convolution
+    -> rank 0 gather output full tensor
+    -> so sanh output distributed voi serial baseline
+    -> ghi summary/layer/rank/topology metrics
+```
+
+Method 2 co hai communication modes:
+
+```text
+blocking    -> MPI_Sendrecv
+nonblocking -> MPI_Irecv + MPI_Isend + MPI_Waitall
+```
+
+Method 2 con ghi topology-aware mapping:
+
+```text
+topology_mapping.csv  -> rank nao nam o cell nao trong grid 2D
+topology_metrics.csv  -> bao nhieu halo edges intra-machine/inter-machine
+topology_grid.txt     -> luoi rank de nhin nhanh khi thuyet trinh
+```
+
+## 3. C++ Runtime Files
 
 `src/yolo_mpi_cpp.cpp`
 
@@ -71,7 +102,32 @@ rank 0 doc camera
 - Live camera pipeline.
 - Rank 0 doc camera, cat tile, gui tile cho worker, nhan ket qua va hien live.
 
-## 3. Python Files Quan Trong
+`src/vgg11_mpi.cpp`
+
+- Entrypoint cho Method 2.
+- Parse tham so `--height`, `--width`, `--profile`, `--grid`, `--halo-mode`.
+- Chay serial baseline va distributed VGG11 convolution stack.
+- Ghi `summary.csv`, `layer_metrics.csv`, `rank_metrics.csv`, topology files.
+
+`src/vgg11_mpi/tensor.hpp`
+
+- Tensor C x H x W don gian.
+- Tao input/weights deterministic.
+- Serial Conv2D, ReLU, MaxPool, compare tensor error.
+
+`src/vgg11_mpi/partition.hpp`
+
+- Chia feature map thanh block 2D.
+- Dung cho mapping rank -> block.
+
+`src/vgg11_mpi/distributed_conv.hpp`
+
+- Scatter core block.
+- Halo exchange blocking/nonblocking.
+- Local Conv2D tren block co halo.
+- Gather output block ve rank 0.
+
+## 4. Python Files Quan Trong
 
 `scripts/runtime/yolo_worker.py`
 
@@ -99,8 +155,9 @@ rank 0 doc camera
 `scripts/report/plots/*.py`
 
 - Ve hinh cho report: find N, speedup, rank metrics, count error.
+- Method 2 plots: `plot_vgg11_conv.py`, `plot_vgg11_input_size.py`.
 
-## 4. Shell Scripts Nen Nho
+## 5. Shell Scripts Nen Nho
 
 `scripts/build.sh`
 
@@ -126,7 +183,20 @@ rank 0 doc camera
 
 - Chay accuracy tren nhieu full sequence: MOT17-02, 05, 09, 10.
 
-## 5. De Xuat Chia Viec 4 Nguoi
+`scripts/run/vgg11_report_experiments.sh`
+
+- Chay report suite cho Method 2.
+- Gom input-size, speedup/efficiency, blocking vs nonblocking, topology mapping.
+
+`scripts/run/vgg11_conv_benchmark.sh`
+
+- Chay speedup/communication benchmark rieng cho Method 2.
+
+`scripts/run/vgg11_topology_mapping_comparison.sh`
+
+- So sanh topology-aware placement voi round-robin placement tren 3 may.
+
+## 6. De Xuat Chia Viec 4 Nguoi
 
 Nguoi 1: C++ MPI scheduling
 
@@ -147,10 +217,18 @@ Nguoi 3: Cluster va asset/data
 
 Nguoi 4: Report va plots
 
-- Doc `scripts/run/report_mot17_mini.sh`, `scripts/run/report_mot17_fullseq.sh`, `scripts/report/plots/*.py`.
+- Doc `scripts/run/report_mot17_mini.sh`, `scripts/run/report_mot17_fullseq.sh`,
+  `scripts/run/vgg11_report_experiments.sh`, `scripts/report/plots/*.py`.
 - Phu trach bang bieu, accuracy voi MOT17 ground truth, tong hop ket qua.
 
-## 6. File Khong Can Hoc Sau
+Neu muon chia Method 2 rieng:
+
+Nguoi 1 doc `src/vgg11_mpi/distributed_conv.hpp` de giai thich halo exchange.
+Nguoi 2 doc `src/vgg11_mpi.cpp` de giai thich VGG11 stack va correctness.
+Nguoi 3 chay `scripts/run/vgg11_report_experiments.sh` tren 3 may.
+Nguoi 4 dua hinh/bang Method 2 vao report.
+
+## 7. File Khong Can Hoc Sau
 
 Nhung file nay la tool ho tro, chi can biet cong dung:
 

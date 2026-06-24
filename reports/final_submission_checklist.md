@@ -93,9 +93,43 @@ SUBMISSION_ZIP=dist/final_submission_<timestamp>.zip
 
 ## Evidence To Mention During Presentation
 
+Method 1, YOLO11n task parallelism:
+
 - Correctness: serial vs MPI passed, 0 mismatched frames.
 - Chosen N: `N=600` frames, runtime `123.667s`.
 - Speedup uses `2N=1200` frames.
 - Speedup at `P=12`: `1.939x` with communication, `2.011x` without communication.
 - Dynamic scheduling is not always faster; it has dispatch overhead but is more general for irregular tasks and heterogeneous machines.
 - YOLO-vs-ground-truth error is model accuracy, not parallel correctness.
+
+Method 2, VGG11 no-BN distributed convolution extension:
+
+- Code path: `src/vgg11_mpi.cpp` and `src/vgg11_mpi/`.
+- Main note/runbook: `reports/method2_vgg11_notes.md`.
+- Local quick suite already verifies blocking/non-blocking correctness with `max_abs_error=0`.
+- Before the team starts the longer Method 2 run, run:
+
+```bash
+bash scripts/run/vgg11_method2_preflight.sh
+```
+
+- Before rewriting the final PDF around Method 2, run the three-machine report suite:
+
+```bash
+VGG_REPORT_DIR=results/vgg11_method2_report_$(date +%Y%m%d-%H%M%S) \
+VGG_USE_HOSTFILE=1 \
+VGG_HOSTFILE=configs/hosts_macos_core_weighted_12_4_6_2 \
+MPI_MAP_BY=slot \
+VGG_GRID=3x4 \
+VGG_HALO_MODES="blocking nonblocking" \
+VGG_SIZE_LIST="32 64 128" \
+VGG_INPUT_NP=12 \
+VGG_P_LIST="1 2 4 8 12" \
+VGG_SPEEDUP_SIZE=64 \
+VGG_REPORT_PROFILE=small \
+VGG_RUN_TOPOLOGY=1 \
+bash scripts/run/vgg11_report_experiments.sh
+```
+
+- Required Method 2 figures/tables: input size plot, speedup/efficiency plot, blocking vs non-blocking runtime, rank/load metrics, topology-aware vs round-robin mapping comparison.
+- After the Method 2 suite finishes, use `results/vgg11_method2_report_<timestamp>/summary_tables.md` as the source for report tables.

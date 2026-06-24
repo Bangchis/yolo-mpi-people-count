@@ -11,7 +11,9 @@ It is a private checklist for final review, not necessarily part of the submitte
 | `reports/final_report_hust_style.html` | Self-contained HTML with embedded figures for PDF export | Ready |
 | `reports/final_report_hust_style_DRAFT.pdf` | Draft PDF export, currently 18 pages | Ready except group ID placeholder |
 | `reports/final_submission_checklist.md` | Final manual submission steps | Ready |
+| `reports/method2_vgg11_notes.md` | Method 2 VGG11 distributed convolution runbook and report outline | Implemented, needs 3-machine results before final PDF rewrite |
 | `results/report_mot17_mini_final_20260623-154318/summary_tables.md` | Raw summary tables from experiments | Ready |
+| `results/vgg11_method2_report_quick/` | Local Method 2 quick smoke evidence | Ready as local smoke only |
 | `scripts/report/finalize_submission.sh` | One-command final packaging after group ID is known | Ready |
 
 ## Instructor Requirement Mapping
@@ -41,6 +43,46 @@ It is a private checklist for final review, not necessarily part of the submitte
 | Interesting topic/difficulty | Sections 1, 2, 3, 7 | YOLO + MPI + three-machine cluster + MOT17 |
 | Demo runs | Section 7.9 | Live camera pipeline exists; benchmark is offline CPU/OpenMPI |
 | Code size >= 250 lines per person | Section 5.4 and Section 8 | Selected files around 6710 lines |
+
+## Method 2 Extension Coverage
+
+Method 2 is the newer VGG11 no-BatchNorm distributed convolution extension.
+It is intended to strengthen the parallel-computing content of the report by
+adding fine-grained data parallelism inside CNN convolution layers.
+
+| Instructor/report item | Method 2 evidence | Current status |
+|---|---|---|
+| Parallel level | Data parallelism inside CNN convolution layers | Implemented in `src/vgg11_mpi.cpp` and `src/vgg11_mpi/` |
+| Decomposition | 2D feature-map block decomposition | Implemented in `src/vgg11_mpi/partition.hpp` |
+| Mapping technique | `Pr x Pc` 2D process grid | Implemented, grid selected by `--grid auto` or `--grid 3x4` |
+| Communication topology | 2D mesh / Cartesian-style neighbor communication | Implemented through rank-neighbor halo exchange |
+| Halo exchange | Row, column, and corner halo exchange for 3x3 convolution | Implemented in `distributed_conv.hpp` |
+| Blocking communication | `MPI_Sendrecv` halo exchange | Implemented with `--halo-mode blocking` |
+| Non-blocking communication | `MPI_Irecv`, `MPI_Isend`, `MPI_Waitall` halo exchange | Implemented with `--halo-mode nonblocking` |
+| Topology-aware placement | Contiguous rank placement and inter-machine halo edge counting | Implemented through hostfile order plus `topology_metrics.csv` |
+| Correctness | Serial VGG11 conv stack vs distributed VGG11 conv stack | Local smoke passed with `max_abs_error=0` |
+| Input size selection | Size sweep over H x W | Implemented in `scripts/run/vgg11_report_experiments.sh` |
+| Speedup/efficiency | P sweep with blocking and nonblocking modes | Implemented in `scripts/run/vgg11_conv_benchmark.sh` |
+| Granularity/load balance | Per-rank scatter/halo/compute/gather/idle metrics | Implemented through `rank_metrics.csv` and plots |
+| Visualizations | Speedup/efficiency/breakdown and input-size figures | Implemented through `plot_vgg11_conv.py` and `plot_vgg11_input_size.py` |
+
+Three-machine Method 2 run still required before updating the final PDF:
+
+```bash
+VGG_REPORT_DIR=results/vgg11_method2_report_$(date +%Y%m%d-%H%M%S) \
+VGG_USE_HOSTFILE=1 \
+VGG_HOSTFILE=configs/hosts_macos_core_weighted_12_4_6_2 \
+MPI_MAP_BY=slot \
+VGG_GRID=3x4 \
+VGG_HALO_MODES="blocking nonblocking" \
+VGG_SIZE_LIST="32 64 128" \
+VGG_INPUT_NP=12 \
+VGG_P_LIST="1 2 4 8 12" \
+VGG_SPEEDUP_SIZE=64 \
+VGG_REPORT_PROFILE=small \
+VGG_RUN_TOPOLOGY=1 \
+bash scripts/run/vgg11_report_experiments.sh
+```
 
 ## Key Numbers To Remember
 

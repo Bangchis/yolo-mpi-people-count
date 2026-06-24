@@ -1,14 +1,21 @@
-# Parallel YOLO People Counting on 3 MacBooks
+# Parallel CNN Inference on 3 MacBooks
 
 This repo is the macOS-host mirror of the existing `parallel-macbook-cluster-setup`
 cluster workflow. The old repo remains untouched and is used as the source of
 truth for naming, hostfile shape, MPI flags, evidence logs, reconnect workflow,
 and benchmark layout.
 
-The required parallel algorithm is implemented only in `C++17 + OpenMPI`.
-`src/yolo_mpi_cpp.cpp` is now a short entrypoint that includes smaller files
-under `src/yolo_mpi/` by responsibility: `core`, `detector`, `mpi`,
-`postprocess`, `output`, and `live`. There is no Python MPI path.
+The course-facing parallel algorithms are implemented in `C++17 + OpenMPI`.
+There are two separated methods:
+
+- Method 1: `src/yolo_mpi_cpp.cpp` and `src/yolo_mpi/` implement task
+  parallelism for YOLO11n video inference.
+- Method 2: `src/vgg11_mpi.cpp` and `src/vgg11_mpi/` implement data parallelism
+  for VGG11 no-BatchNorm convolution layers using 2D block mapping and halo
+  exchange.
+
+There is no Python MPI path. Python is used only for detector helpers, plots,
+assets, and report automation.
 
 By default `YOLO_MASTER_COMPUTE=1`, so rank 0 on the master also runs a local
 YOLO worker on `device=mps`. In dynamic mode the master acts as both coordinator
@@ -130,6 +137,63 @@ Outputs are written under `results/`:
 
 Video rendering is a Python/OpenCV post-process from C++ CSV output. The
 parallel algorithm remains C++17/OpenMPI.
+
+## Method 2: VGG11 Distributed Convolution
+
+Method 2 is a fine-grained CNN parallelization experiment. It does not run
+YOLO. It runs a VGG11 no-BatchNorm convolution stack where each convolution
+layer is split over a 2D MPI process grid:
+
+```text
+feature map -> 2D blocks -> halo exchange -> local Conv2D -> gather -> next layer
+```
+
+It writes correctness, speedup, communication, load-balance, and topology-aware
+mapping evidence:
+
+- `summary.csv`
+- `layer_metrics.csv`
+- `rank_metrics.csv`
+- `topology_mapping.csv`
+- `topology_metrics.csv`
+- `raw/vgg11_speedup.csv`
+- `figures/vgg11_conv_method2.png`
+
+Local quick report-suite check:
+
+```bash
+VGG_REPORT_DIR=results/vgg11_method2_report_quick \
+VGG_USE_HOSTFILE=0 \
+VGG_RUN_TOPOLOGY=0 \
+VGG_SIZE_LIST="16 32" \
+VGG_P_LIST="1 2" \
+VGG_INPUT_NP=2 \
+VGG_HALO_MODES="blocking nonblocking" \
+VGG_SPEEDUP_SIZE=32 \
+VGG_REPORT_PROFILE=tiny \
+bash scripts/run/vgg11_report_experiments.sh
+```
+
+Three-machine Method 2 report run:
+
+```bash
+VGG_REPORT_DIR=results/vgg11_method2_report_$(date +%Y%m%d-%H%M%S) \
+VGG_USE_HOSTFILE=1 \
+VGG_HOSTFILE=configs/hosts_macos_core_weighted_12_4_6_2 \
+MPI_MAP_BY=slot \
+VGG_GRID=3x4 \
+VGG_HALO_MODES="blocking nonblocking" \
+VGG_SIZE_LIST="32 64 128" \
+VGG_INPUT_NP=12 \
+VGG_P_LIST="1 2 4 8 12" \
+VGG_SPEEDUP_SIZE=64 \
+VGG_REPORT_PROFILE=small \
+VGG_RUN_TOPOLOGY=1 \
+bash scripts/run/vgg11_report_experiments.sh
+```
+
+The Method 2 runbook is
+[reports/method2_vgg11_notes.md](reports/method2_vgg11_notes.md).
 
 ## Live Camera On Master
 

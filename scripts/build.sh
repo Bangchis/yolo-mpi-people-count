@@ -17,5 +17,10 @@ fi
   src/yolo_mpi_cpp.cpp \
   -o build/yolo_mpi_cpp
 
+"$compiler" -std=c++17 -O2 -Wall -Wextra -pedantic \
+  src/vgg11_mpi.cpp \
+  -o build/vgg11_mpi
+
 echo "BUILD_DONE=YES"
 echo "BINARY=build/yolo_mpi_cpp"
+echo "METHOD2_BINARY=build/vgg11_mpi"
