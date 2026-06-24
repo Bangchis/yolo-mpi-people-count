@@ -20,6 +20,7 @@ data/raw/
 data/mot17-mini/
 data/mot17-fullseq/
 data/mot17-benchmark/
+data/vgg11-tiny-images/
 data/*.mp4
 data/*.mov
 data/*.avi

@@ -97,6 +97,7 @@ The upload script includes shareable runtime assets:
 - `data/bus.jpg`
 - `data/mot17-mini/*`
 - `data/mot17-fullseq/*`
+- `data/vgg11-tiny-images/*`
 
 It does not upload `configs/cluster_macos.env`, SSH keys, IP-specific evidence,
 `results/`, `runs/`, or `build/`. Use `--private` if the video/image assets show
@@ -174,18 +175,17 @@ VGG_REPORT_PROFILE=tiny \
 bash scripts/run/vgg11_report_experiments.sh
 ```
 
-Small real-image local smoke test using the CIFAR-10 test batch:
+Small real-image local smoke test using a tiny public-image set:
 
 ```bash
-VGG_CIFAR_COUNT=16 \
+VGG_IMAGE_COUNT=4 \
 VGG_NP=2 \
-bash scripts/run/vgg11_cifar10_local_smoke.sh
+bash scripts/run/vgg11_tiny_images_local_smoke.sh
 ```
 
-This downloads the official CIFAR-10 binary archive if needed, converts only
-the first `VGG_CIFAR_COUNT` test images to PPM, then runs Method 2 with
-`--input-list`. The benchmark still checks distributed output against the
-serial VGG11 no-BN stack and writes `image_metrics.csv`.
+This downloads a few small public images, converts them to PPM, then runs
+Method 2 with `--input-list`. The benchmark still checks distributed output
+against the serial VGG11 no-BN stack and writes `image_metrics.csv`.
 
 Three-machine Method 2 report run:
 
@@ -205,15 +205,15 @@ VGG_RUN_TOPOLOGY=1 \
 bash scripts/run/vgg11_report_experiments.sh
 ```
 
-Three-machine CIFAR-10 image benchmark, to run only after all Macs are on the
+Three-machine tiny-image benchmark, to run only after all Macs are on the
 same LAN:
 
 ```bash
 VGG_CLUSTER_RUN_NOW=1 \
-VGG_CIFAR_COUNT=32 \
+VGG_IMAGE_COUNT=4 \
 VGG_P_LIST="1 2 4 8 12" \
 MPI_MAP_BY=slot \
-bash scripts/run/vgg11_cifar10_cluster_benchmark.sh
+bash scripts/run/vgg11_tiny_images_cluster_benchmark.sh
 ```
 
 The Method 2 runbook is

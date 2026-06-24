@@ -35,7 +35,7 @@ The old top-level headers `tensor.hpp`, `partition.hpp`, and
 For real-image smoke tests, the binary supports:
 
 ```bash
-build/vgg11_mpi --height 32 --width 32 --input-list data/vgg11-cifar10-mini/image_list.txt
+build/vgg11_mpi --height 64 --width 64 --input-list data/vgg11-tiny-images/image_list.txt
 ```
 
 Only rank 0 reads the image files. Other ranks receive their feature-map blocks

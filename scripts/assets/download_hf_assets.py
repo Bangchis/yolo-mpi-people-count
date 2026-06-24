@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from huggingface_hub import hf_hub_download
+from huggingface_hub import hf_hub_download, snapshot_download
 
 
 DEFAULT_ASSETS = [
@@ -24,6 +24,10 @@ DEFAULT_ASSETS = [
     "data/mot17-fullseq/README.md",
 ]
 
+DEFAULT_FOLDERS = [
+    "data/vgg11-tiny-images",
+]
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Download runtime assets from a Hugging Face repo.")
@@ -31,12 +35,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--repo-type", default="dataset", choices=["dataset", "model"])
     parser.add_argument("--revision", default="main")
     parser.add_argument("--asset", action="append", default=[], help="Remote asset path to download.")
+    parser.add_argument("--folder", action="append", default=[], help="Remote folder path to download.")
+    parser.add_argument("--no-defaults", action="store_true", help="Download only explicit --asset/--folder entries.")
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
-    assets = args.asset or DEFAULT_ASSETS
+    assets = args.asset if args.no_defaults else (args.asset or DEFAULT_ASSETS)
+    folders = args.folder if args.no_defaults else (args.folder or DEFAULT_FOLDERS)
+
     for remote_path in assets:
         local_path = Path(remote_path)
         local_path.parent.mkdir(parents=True, exist_ok=True)
@@ -48,6 +56,16 @@ def main() -> int:
             local_dir=".",
         )
         print(f"DOWNLOADED {remote_path} -> {downloaded}")
+
+    for remote_folder in folders:
+        snapshot_dir = snapshot_download(
+            repo_id=args.repo_id,
+            repo_type=args.repo_type,
+            revision=args.revision,
+            allow_patterns=[remote_folder.rstrip("/") + "/**"],
+            local_dir=".",
+        )
+        print(f"DOWNLOADED_FOLDER {remote_folder} -> {snapshot_dir}")
     return 0
 
 

@@ -107,10 +107,10 @@ Method 2, VGG11 no-BN distributed convolution extension:
 - Code path: `src/vgg11_mpi.cpp` and `src/vgg11_mpi/`.
 - Main note/runbook: `reports/method2_vgg11_notes.md`.
 - Local quick suite already verifies blocking/non-blocking correctness with `max_abs_error=0`.
-- Small real-image Method 2 smoke test uses CIFAR-10 `test_batch.bin` only:
+- Small real-image Method 2 smoke test uses a tiny public-image set:
 
 ```bash
-VGG_CIFAR_COUNT=16 VGG_NP=2 bash scripts/run/vgg11_cifar10_local_smoke.sh
+VGG_IMAGE_COUNT=4 VGG_NP=2 bash scripts/run/vgg11_tiny_images_local_smoke.sh
 ```
 
 - Before the team starts the longer Method 2 run, run:
