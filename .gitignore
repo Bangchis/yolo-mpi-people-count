@@ -10,6 +10,9 @@ build/
 dist/
 *.egg-info/
 
+# The LaTeX report is published as a separate repository.
+Parallel-Programming-Final-Project/
+
 # Local cluster secrets and machine-specific paths.
 configs/cluster_macos.env
 
